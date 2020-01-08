@@ -18,11 +18,11 @@ LIB_FILES := -L $(OUT_PATH)/usr/lib
 LD_FLAGS := -lpthread -lm -ldbus-1 -ldbus-glib-1 -lglib-2.0 -lgio-2.0 -lgobject-2.0 -lreadline -ljson-c -lgdbus
 SRC_FILES := agent.c dbus_helpers.c netctl.c main.c db_monitor.c dbus.c manage.c
 
-BIN_FILE := network_manager
+BIN_FILE := netserver
 
 out:
-	$(hide)$(ECHO) "Build clock ..."
+	$(hide)$(ECHO) "Build ..."
 	./../../buildroot/output/rockchip_puma/host/usr/bin/arm-buildroot-linux-gnueabihf-gcc $(SRC_FILES) $(INC_FILES) $(LIB_FILES) $(LD_FLAGS) -o $(BIN_FILE)
-	cp dbusconfig/network_manager.conf $(STAGOUT_PATH)/etc/dbus-1/system.d/
-	cp network_manager $(STAGOUT_PATH)/usr/bin/
-	$(hide)$(ECHO) "Build clock Done ..."
+	cp dbusconfig/netserver.conf $(STAGOUT_PATH)/etc/dbus-1/system.d/
+	cp netserver $(STAGOUT_PATH)/usr/bin/
+	$(hide)$(ECHO) "Build Done ..."

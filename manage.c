@@ -31,8 +31,8 @@ static gboolean power_send_changed(char *name, void *val)
     DBusMessage *signal;
     DBusMessageIter iter;
 
-    signal = dbus_message_new_signal(NETWORKMANAGER_PATH,
-                                     NETWORKMANAGER_INTERFACE, "PowerChanged");
+    signal = dbus_message_new_signal(NETSERVER_PATH,
+                                     NETSERVER_INTERFACE, "PowerChanged");
     if (!signal)
         return FALSE;
 
@@ -263,7 +263,7 @@ static const GDBusSignalTable server_signals[] = {
 static int dbus_manager_init(void)
 {
     g_dbus_register_interface(connection, "/",
-                              NETWORKMANAGER_INTERFACE,
+                              NETSERVER_INTERFACE,
                               server_methods,
                               server_signals, NULL, NULL, NULL);
 
@@ -277,10 +277,10 @@ void manage_init(void)
     DBusConnection *dbus_conn;
 
     dbus_error_init(&dbus_err);
-    dbus_conn = g_dbus_setup_bus(DBUS_BUS_SYSTEM, NETWORKMANAGER, &dbus_err);
+    dbus_conn = g_dbus_setup_bus(DBUS_BUS_SYSTEM, NETSERVER, &dbus_err);
     connection = dbus_conn;
     if (!connection) {
-        printf("%s connect %s fail\n", __func__, NETWORKMANAGER);
+        printf("%s connect %s fail\n", __func__, NETSERVER);
         return;
     }
     dbus_manager_init();

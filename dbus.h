@@ -1,11 +1,11 @@
 #ifndef __DBUS_H__
 #define __DBUS_H__
 
-#define NETWORKMANAGER   "rockchip.NetworkManager"
-#define NETWORKMANAGER_PATH      "/"
-#define NETWORKMANAGER_INTERFACE    NETWORKMANAGER ".server"
+#define NETSERVER   "rockchip.netserver"
+#define NETSERVER_PATH      "/"
+#define NETSERVER_INTERFACE    NETSERVER ".server"
 
-#define ERROR_INTERFACE     NETWORKMANAGER ".Error"
+#define ERROR_INTERFACE     NETSERVER ".Error"
 
 DBusConnection *connman_dbus_get_connection(void);
 
