@@ -70,25 +70,25 @@ static DBusMessage *get_config(DBusConnection *conn,
             json_object *j_db = (json_object *)database_get_netconfig_json(status->service);
 
             if (status->service)
-                json_object_object_add(j_cfg, "service", json_object_new_string(status->service));
+                json_object_object_add(j_cfg, "sService", json_object_new_string(status->service));
             if (status->Nameservers)
-                json_object_object_add(j_cfg, "Nameservers", json_object_new_string(status->Nameservers));
+                json_object_object_add(j_cfg, "sDNS", json_object_new_string(status->Nameservers));
             if (status->Security)
-                json_object_object_add(j_cfg, "Security", json_object_new_string(status->Security));
+                json_object_object_add(j_cfg, "sSecurity", json_object_new_string(status->Security));
             if (status->Ethernet.Method)
-                json_object_object_add(j_eth, "Method", json_object_new_string(status->Ethernet.Method));
+                json_object_object_add(j_eth, "sMethod", json_object_new_string(status->Ethernet.Method));
             if (status->Ethernet.Interface)
-                json_object_object_add(j_eth, "Interface", json_object_new_string(status->Ethernet.Interface));
+                json_object_object_add(j_eth, "sInterface", json_object_new_string(status->Ethernet.Interface));
             if (status->Ethernet.Address)
-                json_object_object_add(j_eth, "Address", json_object_new_string(status->Ethernet.Address));
+                json_object_object_add(j_eth, "sAddress", json_object_new_string(status->Ethernet.Address));
             if (status->IPv4.Method)
-                json_object_object_add(j_ipv4, "Method", json_object_new_string(status->IPv4.Method));
+                json_object_object_add(j_ipv4, "sV4Method", json_object_new_string(status->IPv4.Method));
             if (status->IPv4.Address)
-                json_object_object_add(j_ipv4, "Address", json_object_new_string(status->IPv4.Address));
+                json_object_object_add(j_ipv4, "sV4Address", json_object_new_string(status->IPv4.Address));
             if (status->IPv4.Netmask)
-                json_object_object_add(j_ipv4, "Netmask", json_object_new_string(status->IPv4.Netmask));
+                json_object_object_add(j_ipv4, "sV4Netmask", json_object_new_string(status->IPv4.Netmask));
             if (status->IPv4.Gateway)
-                json_object_object_add(j_ipv4, "Gateway", json_object_new_string(status->IPv4.Gateway));
+                json_object_object_add(j_ipv4, "sV4Gateway", json_object_new_string(status->IPv4.Gateway));
             json_object_object_add(j_cfg, "ipv4", j_ipv4);
             json_object_object_add(j_cfg, "ethernet", j_eth);
 
@@ -107,25 +107,25 @@ static DBusMessage *get_config(DBusConnection *conn,
                 json_object *j_db = (json_object *)database_get_netconfig_json(status->service);
 
                 if (status->service)
-                    json_object_object_add(j_cfg, "service", json_object_new_string(status->service));
+                    json_object_object_add(j_cfg, "sService", json_object_new_string(status->service));
                 if (status->Nameservers)
-                    json_object_object_add(j_cfg, "Nameservers", json_object_new_string(status->Nameservers));
+                    json_object_object_add(j_cfg, "sDNS", json_object_new_string(status->Nameservers));
                 if (status->Security)
-                    json_object_object_add(j_cfg, "Security", json_object_new_string(status->Security));
+                    json_object_object_add(j_cfg, "sSecurity", json_object_new_string(status->Security));
                 if (status->Ethernet.Method)
-                    json_object_object_add(j_eth, "Method", json_object_new_string(status->Ethernet.Method));
+                    json_object_object_add(j_eth, "sV4Method", json_object_new_string(status->Ethernet.Method));
                 if (status->Ethernet.Interface)
-                    json_object_object_add(j_eth, "Interface", json_object_new_string(status->Ethernet.Interface));
+                    json_object_object_add(j_eth, "sInterface", json_object_new_string(status->Ethernet.Interface));
                 if (status->Ethernet.Address)
-                    json_object_object_add(j_eth, "Address", json_object_new_string(status->Ethernet.Address));
+                    json_object_object_add(j_eth, "sAddress", json_object_new_string(status->Ethernet.Address));
                 if (status->IPv4.Method)
-                    json_object_object_add(j_ipv4, "Method", json_object_new_string(status->IPv4.Method));
+                    json_object_object_add(j_ipv4, "sV4Method", json_object_new_string(status->IPv4.Method));
                 if (status->IPv4.Address)
-                    json_object_object_add(j_ipv4, "Address", json_object_new_string(status->IPv4.Address));
+                    json_object_object_add(j_ipv4, "sV4Address", json_object_new_string(status->IPv4.Address));
                 if (status->IPv4.Netmask)
-                    json_object_object_add(j_ipv4, "Netmask", json_object_new_string(status->IPv4.Netmask));
+                    json_object_object_add(j_ipv4, "sV4Netmask", json_object_new_string(status->IPv4.Netmask));
                 if (status->IPv4.Gateway)
-                    json_object_object_add(j_ipv4, "Gateway", json_object_new_string(status->IPv4.Gateway));
+                    json_object_object_add(j_ipv4, "sV4Gateway", json_object_new_string(status->IPv4.Gateway));
                 json_object_object_add(j_cfg, "ipv4", j_ipv4);
                 json_object_object_add(j_cfg, "ethernet", j_eth);
 
@@ -174,15 +174,15 @@ static DBusMessage *get_service(DBusConnection *conn,
 
             json_object *j_cfg = json_object_new_object();
             if (status->service)
-                json_object_object_add(j_cfg, "service", json_object_new_string(status->service));
+                json_object_object_add(j_cfg, "sService", json_object_new_string(status->service));
             if (status->Type)
-                json_object_object_add(j_cfg, "Type", json_object_new_string(status->Type));
+                json_object_object_add(j_cfg, "sType", json_object_new_string(status->Type));
             if (status->State)
-                json_object_object_add(j_cfg, "State", json_object_new_string(status->State));
+                json_object_object_add(j_cfg, "sState", json_object_new_string(status->State));
             if (status->Name)
-                json_object_object_add(j_cfg, "Name", json_object_new_string(status->Name));
+                json_object_object_add(j_cfg, "sName", json_object_new_string(status->Name));
             if (status->Security)
-                json_object_object_add(j_cfg, "Security", json_object_new_string(status->Security));
+                json_object_object_add(j_cfg, "sSecurity", json_object_new_string(status->Security));
             json_object_object_add(j_cfg, "Favorite", json_object_new_int(status->Favorite));
             json_object_object_add(j_cfg, "Strength", json_object_new_int(status->Strength));
 
@@ -196,15 +196,15 @@ static DBusMessage *get_service(DBusConnection *conn,
             if (g_str_equal(status->Type, type)) {
                 json_object *j_cfg = json_object_new_object();
                 if (status->service)
-                    json_object_object_add(j_cfg, "service", json_object_new_string(status->service));
+                    json_object_object_add(j_cfg, "sService", json_object_new_string(status->service));
                 if (status->Type)
-                    json_object_object_add(j_cfg, "Type", json_object_new_string(status->Type));
+                    json_object_object_add(j_cfg, "sType", json_object_new_string(status->Type));
                 if (status->State)
-                    json_object_object_add(j_cfg, "State", json_object_new_string(status->State));
+                    json_object_object_add(j_cfg, "sState", json_object_new_string(status->State));
                 if (status->Name)
-                    json_object_object_add(j_cfg, "Name", json_object_new_string(status->Name));
+                    json_object_object_add(j_cfg, "sName", json_object_new_string(status->Name));
                 if (status->Security)
-                    json_object_object_add(j_cfg, "Security", json_object_new_string(status->Security));
+                    json_object_object_add(j_cfg, "sSecurity", json_object_new_string(status->Security));
                 json_object_object_add(j_cfg, "Favorite", json_object_new_int(status->Favorite));
                 json_object_object_add(j_cfg, "Strength", json_object_new_int(status->Strength));
                 json_object_array_add(j_array, j_cfg);

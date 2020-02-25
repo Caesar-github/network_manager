@@ -70,14 +70,14 @@ void *database_get_netconfig_json(char *service)
     if (status) {
         json_object *j_cfg = json_object_new_object();
 
-        json_object_object_add(j_cfg, "sPASSWORD", json_object_new_string(status->password));
-        json_object_object_add(j_cfg, "iFAVORITE", json_object_new_int(status->Favorite));
-        json_object_object_add(j_cfg, "iAUTOCONNECT", json_object_new_int(status->AutoConnect));
-        json_object_object_add(j_cfg, "sV4METHOD", json_object_new_string(status->IPv4.Method));
-        json_object_object_add(j_cfg, "sV4ADDRESS", json_object_new_string(status->IPv4.Address));
-        json_object_object_add(j_cfg, "sV4NETMASK", json_object_new_string(status->IPv4.Netmask));
-        json_object_object_add(j_cfg, "sV4GATEWAY", json_object_new_string(status->IPv4.Gateway));
-        json_object_object_add(j_cfg, "sNAMESERVERS", json_object_new_string(status->Nameservers));
+        json_object_object_add(j_cfg, "sPassword", json_object_new_string(status->password));
+        json_object_object_add(j_cfg, "iFavorite", json_object_new_int(status->Favorite));
+        json_object_object_add(j_cfg, "iAutoconnect", json_object_new_int(status->AutoConnect));
+        json_object_object_add(j_cfg, "sV4Method", json_object_new_string(status->IPv4.Method));
+        json_object_object_add(j_cfg, "sV4Address", json_object_new_string(status->IPv4.Address));
+        json_object_object_add(j_cfg, "sV4Netmask", json_object_new_string(status->IPv4.Netmask));
+        json_object_object_add(j_cfg, "sV4Gateway", json_object_new_string(status->IPv4.Gateway));
+        json_object_object_add(j_cfg, "sDNS", json_object_new_string(status->Nameservers));
 
         return (void *)j_cfg;
     }
@@ -92,20 +92,20 @@ static void updatentp(char *name, void *data)
         memset(ntp, 0, sizeof(struct NtpCfg));
     }
 
-    if (g_str_equal(name, "sSERVERS")) {
+    if (g_str_equal(name, "sNtpServers")) {
         if (ntp->servers)
             g_free(ntp->servers);
         ntp->servers = g_strdup(data);
         printf("%s servers = %s\n", __func__, ntp->servers);
-    } else if (g_str_equal(name, "sZONE")) {
+    } else if (g_str_equal(name, "sTimeZone")) {
         if (ntp->zone)
             g_free(ntp->zone);
         ntp->zone = g_strdup(data);
         printf("%s zone = %s\n", __func__, ntp->zone);
-    } else if (g_str_equal(name, "iAUTO")) {
+    } else if (g_str_equal(name, "iAutoMode")) {
         ntp->automode = *(int *)data;
         printf("%s automode = %d\n", __func__, ntp->automode);
-    } else if (g_str_equal(name, "iTIME")) {
+    } else if (g_str_equal(name, "iRefreshTime")) {
         ntp->time = *(int *)data;
         printf("%s time = %d\n", __func__, ntp->time);
     }
@@ -162,34 +162,40 @@ static void updatehash_netconfig(char *service, char *name, void *data)
         status = malloc(sizeof(struct ConfigStatus));
         memset(status, 0, sizeof(struct ConfigStatus));
         status->service = g_strdup(service);
+        status->IPv4.Method = g_strdup("");
+        status->IPv4.Address = g_strdup("");
+        status->IPv4.Netmask = g_strdup("");
+        status->IPv4.Gateway = g_strdup("");
+        status->Nameservers = g_strdup("");
+        status->password = g_strdup("");
         g_hash_table_replace(db_netconfig_hash, g_strdup(service), (gpointer)status);
     }
 
-    if (g_str_equal(name, "sPASSWORD")) {
+    if (g_str_equal(name, "sPassword")) {
         if (status->password)
             g_free(status->password);
         status->password = g_strdup(data);
-    } else if (g_str_equal(name, "iAUTOCONNECT")) {
+    } else if (g_str_equal(name, "iAutoconnect")) {
         status->AutoConnect = *(int *)data;
-    } else if (g_str_equal(name, "iFAVORITE")) {
+    } else if (g_str_equal(name, "iFavorite")) {
         status->Favorite = *(int *)data;
-    } else if (g_str_equal(name, "sV4METHOD")) {
+    } else if (g_str_equal(name, "sV4Method")) {
         if (status->IPv4.Method)
             g_free(status->IPv4.Method);
         status->IPv4.Method = g_strdup(data);
-    } else if (g_str_equal(name, "sV4ADDRESS")) {
+    } else if (g_str_equal(name, "sV4Address")) {
         if (status->IPv4.Address)
             g_free(status->IPv4.Address);
         status->IPv4.Address = g_strdup(data);
-    } else if (g_str_equal(name, "sV4NETMASK")) {
+    } else if (g_str_equal(name, "sV4Netmask")) {
         if (status->IPv4.Netmask)
             g_free(status->IPv4.Netmask);
         status->IPv4.Netmask = g_strdup(data);
-    } else if (g_str_equal(name, "sV4GATEWAY")) {
+    } else if (g_str_equal(name, "sV4Gateway")) {
         if (status->IPv4.Gateway)
             g_free(status->IPv4.Gateway);
         status->IPv4.Gateway = g_strdup(data);
-    } else if (g_str_equal(name, "sNAMESERVERS")) {
+    } else if (g_str_equal(name, "sDNS")) {
         if (status->Nameservers)
             g_free(status->Nameservers);
         status->Nameservers = g_strdup(data);
@@ -210,13 +216,13 @@ static void DataChanged(char *json_str)
     j_data = json_object_object_get(j_cfg, "data");
 
     if (g_str_equal(table, "power")) {
-        char *name = (char *)json_object_get_string(json_object_object_get(j_key, "sNAME"));
-        int power = json_object_get_int(json_object_object_get(j_data, "iPOWER"));
+        char *name = (char *)json_object_get_string(json_object_object_get(j_key, "sName"));
+        int power = json_object_get_int(json_object_object_get(j_data, "iPower"));
 
         updatehash_power(name, power);
         netctl_set_power(name, power);
     } else if (g_str_equal(table, "netconfig")) {
-        char *service = (char *)json_object_get_string(json_object_object_get(j_key, "sSERVICE"));
+        char *service = (char *)json_object_get_string(json_object_object_get(j_key, "sService"));
         char *cmd = (char *)json_object_get_string(json_object_object_get(j_cfg, "cmd"));
 
         if (g_str_equal(cmd, "Delete")) {
@@ -257,17 +263,21 @@ static void DataChanged(char *json_str)
 static int populate_dbserver_get_ntp(DBusMessageIter *iter, const char *error,
                                      void *user_data)
 {
-    char *jason_str;
+    char *json_str;
     json_object *j_array;
+    json_object *j_ret;
 
     if (error) {
         printf("%s err\n", __func__);
         return 0;
     }
 
-    dbus_message_iter_get_basic(iter, &jason_str);
-    j_array = json_tokener_parse(jason_str);
+    dbus_message_iter_get_basic(iter, &json_str);
+    printf("%s, json_str = %s\n", __func__, json_str);
+    j_ret = json_tokener_parse(json_str);
+    j_array = json_object_object_get(j_ret, "jData");
     int len = json_object_array_length(j_array);
+    printf("%s, len = %d\n", __func__, len);
     for (int i = 0; i < len; i++) {
         json_object *j_data = json_object_array_get_idx(j_array, i);
         json_object_object_foreach(j_data, key, val) {
@@ -281,7 +291,7 @@ static int populate_dbserver_get_ntp(DBusMessageIter *iter, const char *error,
             updatentp(key, data);
         }
     }
-    json_object_put(j_array);
+    json_object_put(j_ret);
 
     return 0;
 }
@@ -289,22 +299,24 @@ static int populate_dbserver_get_ntp(DBusMessageIter *iter, const char *error,
 static int populate_dbserver_get_netconfig(DBusMessageIter *iter, const char *error,
                                            void *user_data)
 {
-    char *jason_str;
+    char *json_str;
     json_object *j_array;
+    json_object *j_ret;
 
     if (error) {
         printf("%s err\n", __func__);
         return 0;
     }
 
-    dbus_message_iter_get_basic(iter, &jason_str);
+    dbus_message_iter_get_basic(iter, &json_str);
 
-    j_array = json_tokener_parse(jason_str);
+    j_ret = json_tokener_parse(json_str);
+    j_array = json_object_object_get(j_ret, "jData");
     int len = json_object_array_length(j_array);
 
     for (int i = 0; i < len; i++) {
         json_object *j_obj = json_object_array_get_idx(j_array, i);
-        char *service = (char *)json_object_get_string(json_object_object_get(j_obj, "sSERVICE"));
+        char *service = (char *)json_object_get_string(json_object_object_get(j_obj, "sService"));
         json_object_object_foreach(j_obj, key, val) {
             void *data;
             int tmp;
@@ -316,14 +328,15 @@ static int populate_dbserver_get_netconfig(DBusMessageIter *iter, const char *er
             updatehash_netconfig(service, key, data);
         }
     }
-    json_object_put(j_array);
+    json_object_put(j_ret);
     return 0;
 }
 
 static int populate_dbserver_get_power(DBusMessageIter *iter, const char *error,
                                        void *user_data)
 {
-    char *jason_str;
+    json_object *j_ret;
+    char *json_str;
     json_object *j_array;
 
     if (error) {
@@ -331,19 +344,21 @@ static int populate_dbserver_get_power(DBusMessageIter *iter, const char *error,
         return 0;
     }
 
-    dbus_message_iter_get_basic(iter, &jason_str);
+    dbus_message_iter_get_basic(iter, &json_str);
 
-    j_array = json_tokener_parse(jason_str);
+    j_ret = json_tokener_parse(json_str);
+    j_array = json_object_object_get(j_ret, "jData");
+
     int len = json_object_array_length(j_array);
 
     for (int i = 0; i < len; i++) {
         json_object *j_obj = json_object_array_get_idx(j_array, i);
-        char *name = (char *)json_object_get_string(json_object_object_get(j_obj, "sNAME"));
-        int power = json_object_get_int(json_object_object_get(j_obj, "iPOWER"));
+        char *name = (char *)json_object_get_string(json_object_object_get(j_obj, "sName"));
+        int power = json_object_get_int(json_object_object_get(j_obj, "iPower"));
 
         updatehash_power(name, power);
     }
-    json_object_put(j_array);
+    json_object_put(j_ret);
 
     return 0;
 }
@@ -373,7 +388,7 @@ static DBusHandlerResult database_monitor_changed(
 
 static void dbserver_power_get(void)
 {
-    char *jason_str;
+    char *json_str;
     json_object *j_cfg = json_object_new_object();
     json_object *key = json_object_new_object();
 
@@ -382,19 +397,19 @@ static void dbserver_power_get(void)
     json_object_object_add(j_cfg, "data", json_object_new_string("*"));
     json_object_object_add(j_cfg, "cmd", json_object_new_string("Select"));
 
-    jason_str = (char *)json_object_to_json_string(j_cfg);
+    json_str = (char *)json_object_to_json_string(j_cfg);
 
     dbus_helpers_method_call(connection,
                              DBSERVER, DBSERVER_PATH,
-                             DBSERVER_NET_INTERFACE, "Select",
-                             populate_dbserver_get_power, NULL, append_path, jason_str);
+                             DBSERVER_NET_INTERFACE, "Cmd",
+                             populate_dbserver_get_power, NULL, append_path, json_str);
 
     json_object_put(j_cfg);
 }
 
 static void dbserver_ntp_get(void)
 {
-    char *jason_str;
+    char *json_str;
 
     json_object *j_cfg = json_object_new_object();
     json_object *key = json_object_new_object();
@@ -404,19 +419,19 @@ static void dbserver_ntp_get(void)
     json_object_object_add(j_cfg, "data", json_object_new_string("*"));
     json_object_object_add(j_cfg, "cmd", json_object_new_string("Select"));
 
-    jason_str = (char *)json_object_to_json_string(j_cfg);
+    json_str = (char *)json_object_to_json_string(j_cfg);
 
     dbus_helpers_method_call(connection,
                              DBSERVER, DBSERVER_PATH,
-                             DBSERVER_NET_INTERFACE, "Select",
-                             populate_dbserver_get_ntp, NULL, append_path, jason_str);
+                             DBSERVER_NET_INTERFACE, "Cmd",
+                             populate_dbserver_get_ntp, NULL, append_path, json_str);
 
     json_object_put(j_cfg);
 }
 
 static void dbserver_netconfig_get(void)
 {
-    char *jason_str;
+    char *json_str;
 
     json_object *j_cfg = json_object_new_object();
     json_object *key = json_object_new_object();
@@ -426,42 +441,42 @@ static void dbserver_netconfig_get(void)
     json_object_object_add(j_cfg, "data", json_object_new_string("*"));
     json_object_object_add(j_cfg, "cmd", json_object_new_string("Select"));
 
-    jason_str = (char *)json_object_to_json_string(j_cfg);
+    json_str = (char *)json_object_to_json_string(j_cfg);
 
     dbus_helpers_method_call(connection,
                              DBSERVER, DBSERVER_PATH,
-                             DBSERVER_NET_INTERFACE, "Select",
-                             populate_dbserver_get_netconfig, NULL, append_path, jason_str);
+                             DBSERVER_NET_INTERFACE, "Cmd",
+                             populate_dbserver_get_netconfig, NULL, append_path, json_str);
 
     json_object_put(j_cfg);
 }
 
 void dbserver_netconfig_set_connect(char *service, char *password, int *favorite, int *autoconnect)
 {
-    char *jason_config;
+    char *json_config;
     json_object *j_cfg = json_object_new_object();
     json_object *key = json_object_new_object();
     json_object *data = json_object_new_object();
 
-    json_object_object_add(key, "sSERVICE", json_object_new_string(service));
+    json_object_object_add(key, "sService", json_object_new_string(service));
     if (password)
-        json_object_object_add(data, "sPASSWORD", json_object_new_string(password));
+        json_object_object_add(data, "sPassword", json_object_new_string(password));
     if (favorite)
-        json_object_object_add(data, "iFAVORITE", json_object_new_int(*favorite));
+        json_object_object_add(data, "iFavorite", json_object_new_int(*favorite));
     if (autoconnect)
-        json_object_object_add(data, "iAUTOCONNECT", json_object_new_int(*autoconnect));
+        json_object_object_add(data, "iAutoconnect", json_object_new_int(*autoconnect));
 
     json_object_object_add(j_cfg, "table", json_object_new_string(TABLE_NETCONFIG));
     json_object_object_add(j_cfg, "key", key);
     json_object_object_add(j_cfg, "data", data);
     json_object_object_add(j_cfg, "cmd", json_object_new_string("Update"));
 
-    jason_config = (char *)json_object_to_json_string(j_cfg);
+    json_config = (char *)json_object_to_json_string(j_cfg);
 
     dbus_helpers_method_call(connection,
                              DBSERVER, DBSERVER_PATH,
                              DBSERVER_NET_INTERFACE, "Update",
-                             NULL, NULL, append_path, jason_config);
+                             NULL, NULL, append_path, json_config);
     json_object_put(j_cfg);
 }
 

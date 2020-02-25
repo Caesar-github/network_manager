@@ -63,8 +63,13 @@ void synczone()
 {
     struct NtpCfg *ntp = database_get_ntp();
     if ((ntp != NULL) && (clockcfg != NULL)) {
-        printf("%s clockcfg->Timezone = %s, ntp->zone = %s\n", __func__, clockcfg->Timezone, ntp->zone);
-        if (!g_str_equal(clockcfg->Timezone, ntp->zone)) {
+        char *Timezone = strstr(clockcfg->Timezone, "(null)/");
+        if (Timezone)
+            Timezone += 7;
+        else
+            Timezone = clockcfg->Timezone;
+        printf("%s clockcfg->Timezone = %s, ntp->zone = %s\n", __func__, Timezone, ntp->zone);
+        if (!g_str_equal(Timezone, ntp->zone)) {
             netctl_clock_config_timezoneupdates("manual");
             netctl_clock_config_timezone(ntp->zone);
         }
@@ -92,21 +97,24 @@ void syncnetconfig(struct PropertiesStatus *status)
         struct ConfigStatus *dbstatus = (struct ConfigStatus *)database_get_netconfig(status->service);
 
         if (dbstatus) {
-            if (!g_str_equal(dbstatus->IPv4.Method, status->IPv4_config.Method)) {
-                netctl_service_config_ipv4(status->service, &dbstatus->IPv4);
-            } else if (g_str_equal(dbstatus->IPv4.Method, "manual")) {
-                if (!g_str_equal(dbstatus->IPv4.Address, status->IPv4_config.Address) ||
-                    !g_str_equal(dbstatus->IPv4.Gateway, status->IPv4_config.Gateway) ||
-                    !g_str_equal(dbstatus->IPv4.Netmask, status->IPv4_config.Netmask)) {
-                    netctl_service_config_ipv4(status->service, &dbstatus->IPv4);
+            if ((dbstatus->IPv4.Method != NULL) && (status->IPv4_config.Method != NULL)) {
+                if (!g_str_equal(dbstatus->IPv4.Method, status->IPv4_config.Method)) {
+                    if (g_str_equal(dbstatus->IPv4.Method, "manual") || g_str_equal(dbstatus->IPv4.Method, "dhcp"))
+                        netctl_service_config_ipv4(status->service, &dbstatus->IPv4);
+                } else if (g_str_equal(dbstatus->IPv4.Method, "manual")) {
+                    if (!g_str_equal(dbstatus->IPv4.Address, status->IPv4_config.Address) ||
+                        !g_str_equal(dbstatus->IPv4.Gateway, status->IPv4_config.Gateway) ||
+                        !g_str_equal(dbstatus->IPv4.Netmask, status->IPv4_config.Netmask)) {
+                        netctl_service_config_ipv4(status->service, &dbstatus->IPv4);
+                    }
                 }
             }
 
-            if (!g_str_equal(dbstatus->Nameservers, status->Nameservers_config)) {
-                netctl_service_config_nameservers(status->service, dbstatus->Nameservers);
-            }
+            if ((dbstatus->Nameservers != NULL) && (status->Nameservers_config != NULL))
+                if (!g_str_equal(dbstatus->Nameservers, status->Nameservers_config))
+                    netctl_service_config_nameservers(status->service, dbstatus->Nameservers);
 
-            if (status->Favorite != dbstatus->Favorite) {
+            if (g_str_equal(status->Type, "wifi") && status->Favorite != dbstatus->Favorite) {
                 if (status->Favorite == 0)
                     netctl_service_connect(status->service, dbstatus->password);
                 else
