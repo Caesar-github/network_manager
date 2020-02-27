@@ -76,7 +76,7 @@ static DBusMessage *get_config(DBusConnection *conn,
             if (status->Security)
                 json_object_object_add(j_cfg, "sSecurity", json_object_new_string(status->Security));
             if (status->Ethernet.Method)
-                json_object_object_add(j_eth, "sMethod", json_object_new_string(status->Ethernet.Method));
+                json_object_object_add(j_eth, "sNicSpeed", json_object_new_string(status->Ethernet.Method));
             if (status->Ethernet.Interface)
                 json_object_object_add(j_eth, "sInterface", json_object_new_string(status->Ethernet.Interface));
             if (status->Ethernet.Address)
@@ -90,7 +90,7 @@ static DBusMessage *get_config(DBusConnection *conn,
             if (status->IPv4.Gateway)
                 json_object_object_add(j_ipv4, "sV4Gateway", json_object_new_string(status->IPv4.Gateway));
             json_object_object_add(j_cfg, "ipv4", j_ipv4);
-            json_object_object_add(j_cfg, "ethernet", j_eth);
+            json_object_object_add(j_cfg, "link", j_eth);
 
             if (j_db)
                 json_object_object_add(j_cfg, "dbconfig", j_db);
@@ -113,7 +113,7 @@ static DBusMessage *get_config(DBusConnection *conn,
                 if (status->Security)
                     json_object_object_add(j_cfg, "sSecurity", json_object_new_string(status->Security));
                 if (status->Ethernet.Method)
-                    json_object_object_add(j_eth, "sV4Method", json_object_new_string(status->Ethernet.Method));
+                    json_object_object_add(j_eth, "sNicSpeed", json_object_new_string(status->Ethernet.Method));
                 if (status->Ethernet.Interface)
                     json_object_object_add(j_eth, "sInterface", json_object_new_string(status->Ethernet.Interface));
                 if (status->Ethernet.Address)
@@ -127,7 +127,7 @@ static DBusMessage *get_config(DBusConnection *conn,
                 if (status->IPv4.Gateway)
                     json_object_object_add(j_ipv4, "sV4Gateway", json_object_new_string(status->IPv4.Gateway));
                 json_object_object_add(j_cfg, "ipv4", j_ipv4);
-                json_object_object_add(j_cfg, "ethernet", j_eth);
+                json_object_object_add(j_cfg, "link", j_eth);
 
                 if (j_db)
                     json_object_object_add(j_cfg, "dbconfig", j_db);
