@@ -16,14 +16,24 @@
 #include "db_monitor.h"
 #include "manage.h"
 
+
+static void *main_init(void *arg)
+{
+    netctl_init();
+    database_init();
+    manage_init();
+    netctl_run();
+}
+
 int main( int argc , char ** argv)
 {
+    pthread_t thread_id;
     GMainLoop *main_loop;
 
     main_loop = g_main_loop_new(NULL, FALSE);
-    database_init();
-    manage_init();
-    netctl_init();
+
+    pthread_create(&thread_id, NULL, (void*)main_init, NULL);
+
     g_main_loop_run(main_loop);
     netctl_deinit();
     if (main_loop)

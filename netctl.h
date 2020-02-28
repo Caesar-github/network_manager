@@ -66,13 +66,31 @@ struct PropertiesStatus {
     struct IPv4Status IPv4_config;
 };
 
-struct ConfigStatus {
+struct NetworkService {
     char *service;
     char *password;
-    char *Nameservers;
     int AutoConnect;
     int Favorite;
+};
+
+struct NetworkIP {
+    char *interface;
+    char *type;
+    char *dns1;
+    char *dns2;
     struct IPv4Status IPv4;
+};
+
+struct NetworkPower {
+    char *type;
+    int power;
+};
+
+struct NtpCfg {
+    char *servers;
+    char *zone;
+    int automode;
+    int time;
 };
 
 void synczone();
@@ -105,5 +123,6 @@ void netctl_clock_config_timeservers(char *ntp);
 void netctl_clock_config_timeupdates(char *mode);//manual,auto
 void netctl_clock_config_timezoneupdates(char *mode);
 void netctl_clock_config_timezone(char *zone);
+void netctl_run(void);
 
 #endif

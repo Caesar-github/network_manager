@@ -61,7 +61,7 @@ static gboolean time_ntp(gpointer arg)
 
 void synczone()
 {
-    struct NtpCfg *ntp = database_get_ntp();
+    struct NtpCfg *ntp = database_ntp_get();
     if ((ntp != NULL) && (clockcfg != NULL)) {
         char *Timezone = strstr(clockcfg->Timezone, "(null)/");
         if (Timezone)
@@ -78,7 +78,7 @@ void synczone()
 
 void syncntp(void)
 {
-    struct NtpCfg *ntp = database_get_ntp();
+    struct NtpCfg *ntp = database_ntp_get();
     if (ntptimeouttag >= 0)
         g_source_remove(ntptimeouttag);
     ntptimeouttag = -1;
@@ -94,39 +94,64 @@ void syncntp(void)
 void syncnetconfig(struct PropertiesStatus *status)
 {
     if (status) {
-        struct ConfigStatus *dbstatus = (struct ConfigStatus *)database_get_netconfig(status->service);
+        struct NetworkService *networkservice = (struct NetworkService *)database_networkservice_get(status->service);
 
-        if (dbstatus) {
-            if ((dbstatus->IPv4.Method != NULL) && (status->IPv4_config.Method != NULL)) {
-                if (!g_str_equal(dbstatus->IPv4.Method, status->IPv4_config.Method)) {
-                    if (g_str_equal(dbstatus->IPv4.Method, "manual") || g_str_equal(dbstatus->IPv4.Method, "dhcp"))
-                        netctl_service_config_ipv4(status->service, &dbstatus->IPv4);
-                } else if (g_str_equal(dbstatus->IPv4.Method, "manual")) {
-                    if (!g_str_equal(dbstatus->IPv4.Address, status->IPv4_config.Address) ||
-                        !g_str_equal(dbstatus->IPv4.Gateway, status->IPv4_config.Gateway) ||
-                        !g_str_equal(dbstatus->IPv4.Netmask, status->IPv4_config.Netmask)) {
-                        netctl_service_config_ipv4(status->service, &dbstatus->IPv4);
-                    }
-                }
-            }
-
-            if ((dbstatus->Nameservers != NULL) && (status->Nameservers_config != NULL))
-                if (!g_str_equal(dbstatus->Nameservers, status->Nameservers_config))
-                    netctl_service_config_nameservers(status->service, dbstatus->Nameservers);
-
-            if (g_str_equal(status->Type, "wifi") && status->Favorite != dbstatus->Favorite) {
+        if (networkservice) {
+            if (g_str_equal(status->Type, "wifi") && status->Favorite != networkservice->Favorite) {
                 if (status->Favorite == 0)
-                    netctl_service_connect(status->service, dbstatus->password);
+                    netctl_service_connect(status->service, networkservice->password);
                 else
                     netctl_service_config_remove(status->service);
             }
         }
-        if (g_str_equal(status->State, "online")) {
-            struct NtpCfg *ntp = database_get_ntp();
+
+        if (g_str_equal(status->State, "online") || g_str_equal(status->State, "ready")) {
+            struct NetworkIP *networkip = database_networkip_get(status->Ethernet.Interface);
+            struct NtpCfg *ntp = database_ntp_get();
             if (ntp != NULL) {
                 if (!g_str_equal(status->Timeservers_config, ntp->servers)) {
                     printf("hjk %s,%s\n", status->Timeservers_config, ntp->servers);
                     netctl_service_config_timeservers(status->service, ntp->servers);
+                }
+            }
+
+            if (networkip) {
+                if ((networkip->IPv4.Method != NULL) && (status->IPv4_config.Method != NULL)) {
+                    if (!g_str_equal(networkip->IPv4.Method, status->IPv4_config.Method)) {
+                        if (g_str_equal(networkip->IPv4.Method, "manual") || g_str_equal(networkip->IPv4.Method, "dhcp"))
+                            netctl_service_config_ipv4(status->service, &networkip->IPv4);
+                    } else if (g_str_equal(networkip->IPv4.Method, "manual")) {
+                        if (!g_str_equal(networkip->IPv4.Address, status->IPv4_config.Address) ||
+                            !g_str_equal(networkip->IPv4.Gateway, status->IPv4_config.Gateway) ||
+                            !g_str_equal(networkip->IPv4.Netmask, status->IPv4_config.Netmask)) {
+                            netctl_service_config_ipv4(status->service, &networkip->IPv4);
+                        }
+                    }
+                }
+
+                if (g_str_equal(networkip->IPv4.Method, "dhcp")) {
+                    if (!g_str_equal(status->Nameservers_config, ""))
+                        netctl_service_config_nameservers(status->service, NULL);
+                } else if (g_str_equal(networkip->IPv4.Method, "manual")) {
+                    char *dns = NULL;
+                    if ((networkip->dns1 != NULL) && !g_str_equal(networkip->dns1, "")) {
+                        if ((networkip->dns2 != NULL) && !g_str_equal(networkip->dns2, ""))
+                            dns = g_strdup_printf("%s %s", networkip->dns1, networkip->dns2);
+                        else
+                            dns = g_strdup(networkip->dns1);
+                    } else {
+                        if ((networkip->dns2 != NULL) && !g_str_equal(networkip->dns2, ""))
+                            dns = g_strdup(networkip->dns2);
+                    }
+
+                    if (dns) {
+                        if (!g_str_equal(dns, status->Nameservers_config))
+                            netctl_service_config_nameservers(status->service, dns);
+                        g_free(dns);
+                    } else {
+                        if (!g_str_equal(status->Nameservers_config, ""))
+                            netctl_service_config_nameservers(status->service, NULL);
+                    }
                 }
             }
         }
@@ -316,12 +341,12 @@ static void add_technology(DBusMessageIter *iter)
     }
 
     pthread_mutex_unlock(&technology_mutex);
+
     if (status->Type) {
-        int power;
-        if (database_get_power(status->Type, &power) == 0) {
-            if (status->Powered != power) {
-                netctl_set_power(status->Type, power);
-            }
+        struct NetworkPower *networkpower = database_networkpower_get(status->Type);
+        if (networkpower) {
+            if (status->Powered != networkpower->power)
+                netctl_set_power(status->Type, networkpower->power);
         }
     }
 }
@@ -1235,7 +1260,7 @@ static void *netctl_thread(void *arg)
 
     main_loop = g_main_loop_new(NULL, FALSE);
     g_timeout_add(100, time_cb, NULL);
-    struct NtpCfg *ntp = database_get_ntp();
+    struct NtpCfg *ntp = database_ntp_get();
     if (ntp != NULL && ntp->automode) {
         netctl_clock_config_timeupdates("auto");
         ntptimeouttag = g_timeout_add(ntp->time * 1000, time_ntp, NULL);
@@ -1547,7 +1572,7 @@ void netctl_service_config_ipv4(char *service, struct IPv4Status *config)
     char *path;
     struct config_append append;
     char *cmd[5] = {config->Method, config->Address, config->Netmask, config->Gateway, NULL};
-
+printf("%s, %s, %s, %s\n", __func__, config->Method, config->Address, config->Netmask, config->Gateway);
     memset(&append, 0, sizeof(struct config_append));
     append.opts = cmd;
     path = g_strdup_printf("/net/connman/service/%s", service);
@@ -1669,7 +1694,10 @@ void netctl_init(void)
 
     dbus_error_init(&dbus_err);
     connection = g_dbus_setup_bus(DBUS_BUS_SYSTEM, NULL, &dbus_err);
+}
 
+void netctl_run(void)
+{
     pthread_create(&thread_id, NULL, (void*)netctl_thread, NULL);
 }
 

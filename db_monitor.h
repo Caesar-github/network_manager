@@ -5,19 +5,14 @@
 extern "C" {
 #endif
 
-struct NtpCfg {
-    char *servers;
-    char *zone;
-    int automode;
-    int time;
-};
-
-int database_get_ntp_time(void);
-struct NtpCfg *database_get_ntp(void);
-void *database_get_netconfig_json(char *service);
+struct NtpCfg *database_ntp_get(void);
+void *database_networkservice_json_get(char *service);
+void *database_networkip_json_get(char *interface);
 void dbserver_netconfig_set_connect(char *service, char *password, int *favorite, int *autoconnect);
-void *database_get_netconfig(char *service);
-int database_get_power(char *name, int *powers);
+void *database_networkip_get(char *interface);
+void *database_networkservice_get(char *service);
+void *database_networkpower_json_get(char *type);
+void *database_networkpower_get(char *type);
 void database_init(void);
 
 #ifdef __cplusplus

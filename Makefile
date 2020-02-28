@@ -13,10 +13,8 @@ INC_FILES := -I $(SYS_PATH)/usr/include \
              -I $(OUT_PATH)/usr/include
 LIB_FILES := -L $(OUT_PATH)/usr/lib
 
-#LD_FLAGS := -lpthread -ljpeg -lpng12 -lm -ldbus-1 -ldbus-glib-1 -lglib-2.0 -lgio-2.0 -lgobject-2.0 -lreadline -ldrm -lminigui_ths -lfreetype -lts -lrga
-#SRC_FILES := agent.c dbus_helpers.c netctl.c gdbus/*.c ui/*.c
 LD_FLAGS := -lpthread -lm -ldbus-1 -ldbus-glib-1 -lglib-2.0 -lgio-2.0 -lgobject-2.0 -lreadline -ljson-c -lgdbus
-SRC_FILES := agent.c dbus_helpers.c netctl.c main.c db_monitor.c dbus.c manage.c
+SRC_FILES := agent.c dbus_helpers.c netctl.c main.c db_monitor.c dbus.c manage.c network_func.c
 
 BIN_FILE := netserver
 
