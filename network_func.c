@@ -48,6 +48,8 @@ int get_ethernet_tool(char *interface, struct ethtool_cmd *ep)
     ep->cmd = ETHTOOL_GSET;
     ifr.ifr_data = (caddr_t)ep;
     err = ioctl(fd, SIOCETHTOOL, &ifr);
+    close(fd);
+
     if (err != 0)
         return -1;
 

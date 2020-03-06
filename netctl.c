@@ -1572,7 +1572,7 @@ void netctl_service_config_ipv4(char *service, struct IPv4Status *config)
     char *path;
     struct config_append append;
     char *cmd[5] = {config->Method, config->Address, config->Netmask, config->Gateway, NULL};
-printf("%s, %s, %s, %s\n", __func__, config->Method, config->Address, config->Netmask, config->Gateway);
+
     memset(&append, 0, sizeof(struct config_append));
     append.opts = cmd;
     path = g_strdup_printf("/net/connman/service/%s", service);
