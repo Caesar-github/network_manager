@@ -109,10 +109,8 @@ void syncnetconfig(struct PropertiesStatus *status)
             struct NetworkIP *networkip = database_networkip_get(status->Ethernet.Interface);
             struct NtpCfg *ntp = database_ntp_get();
             if (ntp != NULL) {
-                if (!g_str_equal(status->Timeservers_config, ntp->servers)) {
-                    printf("hjk %s,%s\n", status->Timeservers_config, ntp->servers);
+                if (!g_str_equal(status->Timeservers_config, ntp->servers))
                     netctl_service_config_timeservers(status->service, ntp->servers);
-                }
             }
 
             if (networkip) {
