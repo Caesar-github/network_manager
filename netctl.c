@@ -85,7 +85,7 @@ void syncntp(void)
     if (ntp != NULL && ntp->automode) {
         netctl_clock_config_timeupdates("auto");
         netctl_clock_config_timeservers("");
-        ntptimeouttag = g_timeout_add(ntp->time * 1000, time_ntp, NULL);
+        ntptimeouttag = g_timeout_add(ntp->time * 60000, time_ntp, NULL);
     } else {
         netctl_clock_config_timeupdates("manual");
     }
@@ -196,7 +196,6 @@ void updateclock(char *name, char *data)
         if (clockcfg->Timezone)
             g_free(clockcfg->Timezone);
         clockcfg->Timezone = g_strdup(data);
-        synczone();
     } else if (strcmp(name, "TimezoneUpdates") == 0) {
         if (clockcfg->TimezoneUpdates)
             g_free(clockcfg->TimezoneUpdates);
@@ -948,6 +947,7 @@ static int populate_clock(DBusMessageIter *iter, const char *error,
 
     dbus_message_iter_recurse(iter, &entry);
     resolve_clock(&entry);
+    synczone();
 
     return 0;
 }
@@ -1261,7 +1261,7 @@ static void *netctl_thread(void *arg)
     struct NtpCfg *ntp = database_ntp_get();
     if (ntp != NULL && ntp->automode) {
         netctl_clock_config_timeupdates("auto");
-        ntptimeouttag = g_timeout_add(ntp->time * 1000, time_ntp, NULL);
+        ntptimeouttag = g_timeout_add(ntp->time * 60000, time_ntp, NULL);
     } else {
         ntptimeouttag = -1;
         netctl_clock_config_timeupdates("manual");
