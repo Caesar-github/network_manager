@@ -259,8 +259,8 @@ static DBusMessage *get_networkip(DBusConnection *conn,
         char *netmask = get_local_netmask(interface);
         char *gateway = get_gateway(interface);
         char *dns1 = NULL;
-        char *dns2 = NULL; 
-        get_dns(&dns1, &dns2);
+        char *dns2 = NULL;
+        netctl_getdns(interface, &dns1, &dns2);
 
         json_object_object_add(j_eth, "sInterface", json_object_new_string(interface));
         if (mac) {

@@ -23,5 +23,6 @@ char *get_local_ip(char *interface);
 char *get_local_netmask(char *interface);
 char *get_gateway(char *interface);
 int get_dns(char **dns1, char **dns2);
+int is_ipv4(char *ip);
 
 #endif

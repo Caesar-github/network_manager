@@ -17,6 +17,7 @@
 #include "netctl.h"
 #include "agent.h"
 #include "db_monitor.h"
+#include "network_func.h"
 
 static pthread_t thread_id;
 static int technology_init_flag = 0;
@@ -1702,4 +1703,37 @@ void netctl_run(void)
 void netctl_deinit(void)
 {
 
+}
+
+void netctl_getdns(char *interface, char **dns1, char **dns2)
+{
+    pthread_mutex_lock(&service_mutex);
+    GList* list_tmp = g_list_first(services_list);
+    while (list_tmp) {
+        struct PropertiesStatus *status = (struct PropertiesStatus *)list_tmp->data;
+        if (status) {
+            if (g_str_equal(status->Ethernet.Interface, interface) && !g_str_equal(status->Nameservers, "")) {
+                char *c = status->Nameservers;
+                while (c > 0) {
+                    char d[16] = {0};
+                    sscanf(c, "%s", d);
+                    if (is_ipv4(d) == 0) {
+                        if (*dns1 == NULL) {
+                            *dns1 = g_strdup(d);
+                        } else {
+                            *dns2 = g_strdup(d);
+                            break;
+                        }
+                    }
+                    c = strchr(c, ' ');
+                    if (c > 0)
+                        c += 1;
+                }
+                break;
+            }
+        }
+        list_tmp = list_tmp->next;
+    }
+
+    pthread_mutex_unlock(&service_mutex);
 }
