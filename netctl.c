@@ -50,6 +50,11 @@ static char *ipv4[] = {
     NULL
 };
 
+struct move_service {
+    char *service;
+    char *target;
+};
+
 static struct config_clock* clockcfg = NULL;
 static struct PropertiesStatus *get_status_by_service(char * service);
 
@@ -1391,11 +1396,7 @@ static int scan_return(DBusMessageIter *iter, const char *error,
 {
     char *path = user_data;
 
-    if (!error) {
-        char *str = strrchr(path, '/');
-        str++;
-        printf("Scan completed for %s\n", str);
-    } else
+    if (error)
         fprintf(stderr, "Error %s: %s\n", path, error);
 
     g_free(user_data);
@@ -1415,9 +1416,7 @@ static int enable_return(DBusMessageIter *iter, const char *error,
     else
         str = tech;
 
-    if (!error)
-        fprintf(stdout, "Enabled %s\n", str);
-    else
+    if (error)
         fprintf(stderr, "Error %s: %s\n", str, error);
 
     g_free(user_data);
@@ -1596,6 +1595,47 @@ void netctl_service_config_remove(char *service)
                                   NULL, NULL);
 }
 
+static int move_before_return(DBusMessageIter *iter, const char *error,
+		void *user_data)
+{
+    struct move_service *services = user_data;
+    char *service;
+    char *target;
+
+    if (error)
+        printf("Error %s: %s\n", services->service, error);
+
+    g_free(services->service);
+    g_free(services->target);
+    g_free(user_data);
+
+    return 0;
+}
+
+static void move_before_append_args(DBusMessageIter *iter, void *user_data)
+{
+    char *path = user_data;
+
+    dbus_message_iter_append_basic(iter,
+        DBUS_TYPE_OBJECT_PATH, &path);
+
+    return;
+}
+
+void netctl_service_move_before(char *service, char *target)
+{
+    struct move_service *services = g_new(struct move_service, 1);
+
+    services->service = g_strdup_printf("/net/connman/service/%s", service);
+    services->target = g_strdup_printf("/net/connman/service/%s", target);
+
+    __connmanctl_dbus_method_call(connection,
+                                  CONNMAN_SERVICE, services->service,
+                                  "net.connman.Service", "MoveBefore",
+                                  move_before_return, services,
+                                  move_before_append_args, services->target);
+}
+
 void netctl_clock_config_timeservers(char *ntp)
 {
     char *path;
@@ -1687,6 +1727,59 @@ void netctl_set_wifi_power(int onoff)
     technologies_power("wifi", onoff);
 }
 
+
+static void *network_priority_thread(void *arg)
+{
+    int cnt = 10;
+    while (1) {
+        struct NetworkPower *networkpower = database_networkpower_get("wifi");
+        if (networkpower) {
+            if (networkpower->power) {
+                if (cnt++ > 10) {
+                    cnt = 0;
+                    netctl_wifi_scan();
+                }
+            }
+        }
+
+        sleep(1);
+        pthread_mutex_lock(&service_mutex);
+        GList* list_tmp = g_list_first(services_list);
+        if (list_tmp) {
+            struct PropertiesStatus *status_first = (struct PropertiesStatus *)list_tmp->data;
+            list_tmp = list_tmp->next;
+            if (g_str_equal(status_first->Type, "wifi")) {
+                if (status_first->Favorite) {
+                    while (list_tmp) {
+                        struct PropertiesStatus *status = (struct PropertiesStatus *)list_tmp->data;
+                        if (g_str_equal(status->Type, "ethernet") && g_str_equal(status->State, "ready")) {
+                            netctl_service_move_before(status->service, status_first->service);
+                            break;
+                        }
+                        list_tmp = list_tmp->next;
+                    }
+                }
+            } else if (g_str_equal(status_first->Type, "ethernet")) {
+                while (list_tmp) {
+                    struct PropertiesStatus *status = (struct PropertiesStatus *)list_tmp->data;
+                    if (g_str_equal(status->Type, "wifi") && status_first->Favorite) {
+                        if (g_str_equal(status->State, "idle"))
+                            netctl_service_connect(status->service, "");
+
+                        break;
+                    }
+                    list_tmp = list_tmp->next;
+                }
+            }
+        }
+
+        pthread_mutex_unlock(&service_mutex);
+    }
+
+    pthread_detach(pthread_self());
+    pthread_exit(NULL);
+}
+
 void netctl_init(void)
 {
     DBusError dbus_err;
@@ -1697,7 +1790,9 @@ void netctl_init(void)
 
 void netctl_run(void)
 {
+    pthread_t tid;
     pthread_create(&thread_id, NULL, (void*)netctl_thread, NULL);
+    pthread_create(&tid, NULL, network_priority_thread, NULL);
 }
 
 void netctl_deinit(void)
