@@ -15,7 +15,7 @@
 #include "netctl.h"
 #include "db_monitor.h"
 #include "manage.h"
-
+#include "udp_broadcast.h"
 
 static void *main_init(void *arg)
 {
@@ -23,6 +23,7 @@ static void *main_init(void *arg)
     database_init();
     manage_init();
     netctl_run();
+    udp_broadcast_init();
 }
 
 int main( int argc , char ** argv)

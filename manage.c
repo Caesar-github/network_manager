@@ -234,89 +234,115 @@ static DBusMessage *get_service(DBusConnection *conn,
     return reply;
 }
 
+json_object *get_networkip_json(char *interface)
+{
+    json_object *j_cfg = json_object_new_object();
+    json_object *j_ipv4 = json_object_new_object();
+    json_object *j_eth = json_object_new_object();
+    char *v4ip = get_local_ip(interface);
+    char *mac = get_local_mac(interface);
+    char *netmask = get_local_netmask(interface);
+    char *gateway = get_gateway(interface);
+    char *dns1 = NULL;
+    char *dns2 = NULL;
+    netctl_getdns(interface, &dns1, &dns2);
+
+    json_object_object_add(j_eth, "sInterface", json_object_new_string(interface));
+    if (mac) {
+        json_object_object_add(j_eth, "sAddress", json_object_new_string(mac));
+        g_free(mac);
+    }
+
+    if (g_str_equal(interface, "eth0")) {
+        struct ethtool_cmd ep;
+        memset(&ep, 0, sizeof(struct ethtool_cmd));
+        get_ethernet_tool(interface, &ep);
+        json_object_object_add(j_eth, "iNicSpeed", json_object_new_int(ep.speed));
+        json_object_object_add(j_eth, "iDuplex", json_object_new_int(ep.duplex));
+    } else {
+        json_object_object_add(j_eth, "iNicSpeed", json_object_new_int(-1));
+        json_object_object_add(j_eth, "iDuplex", json_object_new_int(-1));
+    }
+
+    if (v4ip) {
+        json_object_object_add(j_ipv4, "sV4Address", json_object_new_string(v4ip));
+        g_free(v4ip);
+    }
+
+    if (netmask) {
+        json_object_object_add(j_ipv4, "sV4Netmask", json_object_new_string(netmask));
+        g_free(netmask);
+    }
+
+    if (gateway) {
+        json_object_object_add(j_ipv4, "sV4Gateway", json_object_new_string(gateway));
+        g_free(gateway);
+    }
+
+    if (dns1) {
+        json_object_object_add(j_eth, "sDNS1", json_object_new_string(dns1));
+        g_free(dns1);
+    } else {
+        json_object_object_add(j_eth, "sDNS1", json_object_new_string(""));
+    }
+
+    if (dns2) {
+        json_object_object_add(j_eth, "sDNS2", json_object_new_string(dns2));
+        g_free(dns2);
+    } else {
+        json_object_object_add(j_eth, "sDNS2", json_object_new_string(""));
+    }
+
+    json_object_object_add(j_cfg, "link", j_eth);
+    json_object_object_add(j_cfg, "ipv4", j_ipv4);
+
+    json_object *j_db = (json_object *)database_networkip_json_get(interface);
+    if (j_db)
+        json_object_object_add(j_cfg, "dbconfig", j_db);
+
+    return j_cfg;
+}
+
+void *get_networkip_json_array(char *interface)
+{
+    json_object *j_array = json_object_new_array();
+
+    if (g_str_equal(interface, "")) {
+        GList *list, *values;
+        list = values = g_hash_table_get_values(database_hash_network_ip_get());
+        while (values) {
+            struct NetworkIP *networkip = (struct NetworkIP *)values->data;
+            if (networkip != NULL) {
+                json_object *j_cfg = get_networkip_json(networkip->interface);
+                json_object_array_add(j_array, j_cfg);
+            }
+            values = values->next;
+        }
+        g_list_free(list);
+    } else if (database_networkip_get(interface)) {
+        json_object *j_cfg = get_networkip_json(interface);
+        json_object_array_add(j_array, j_cfg);
+    }
+
+    return j_array;
+}
+
 static DBusMessage *get_networkip(DBusConnection *conn,
                                 DBusMessage *msg, void *data)
 {
     const char *sender;
     char *interface;
-    const char *str;
+    char const *str;
     DBusMessage *reply;
     DBusMessageIter array;
     dbus_bool_t onoff;
-    json_object *j_array = json_object_new_array();
 
     sender = dbus_message_get_sender(msg);
 
     dbus_message_get_args(msg, NULL, DBUS_TYPE_STRING, &interface,
                           DBUS_TYPE_INVALID);
 
-    if (g_str_equal(interface, "wlan0") || g_str_equal(interface, "eth0")) {
-        json_object *j_cfg = json_object_new_object();
-        json_object *j_ipv4 = json_object_new_object();
-        json_object *j_eth = json_object_new_object();
-        char *v4ip = get_local_ip(interface);
-        char *mac = get_local_mac(interface);
-        char *netmask = get_local_netmask(interface);
-        char *gateway = get_gateway(interface);
-        char *dns1 = NULL;
-        char *dns2 = NULL;
-        netctl_getdns(interface, &dns1, &dns2);
-
-        json_object_object_add(j_eth, "sInterface", json_object_new_string(interface));
-        if (mac) {
-            json_object_object_add(j_eth, "sAddress", json_object_new_string(mac));
-            g_free(mac);
-        }
-
-        if (g_str_equal(interface, "eth0")) {
-            struct ethtool_cmd ep;
-            memset(&ep, 0, sizeof(struct ethtool_cmd));
-            get_ethernet_tool(interface, &ep);
-            json_object_object_add(j_eth, "iNicSpeed", json_object_new_int(ep.speed));
-            json_object_object_add(j_eth, "iDuplex", json_object_new_int(ep.duplex));
-        } else {
-            json_object_object_add(j_eth, "iNicSpeed", json_object_new_int(-1));
-            json_object_object_add(j_eth, "iDuplex", json_object_new_int(-1));
-        }
-
-        if (v4ip) {
-            json_object_object_add(j_ipv4, "sV4Address", json_object_new_string(v4ip));
-            g_free(v4ip);
-        }
-
-        if (netmask) {
-            json_object_object_add(j_ipv4, "sV4Netmask", json_object_new_string(netmask));
-            g_free(netmask);
-        }
-
-        if (gateway) {
-            json_object_object_add(j_ipv4, "sV4Gateway", json_object_new_string(gateway));
-            g_free(gateway);
-        }
-
-        if (dns1) {
-            json_object_object_add(j_eth, "sDNS1", json_object_new_string(dns1));
-            g_free(dns1);
-        } else {
-            json_object_object_add(j_eth, "sDNS1", json_object_new_string(""));
-        }
-
-        if (dns2) {
-            json_object_object_add(j_eth, "sDNS2", json_object_new_string(dns2));
-            g_free(dns2);
-        } else {
-            json_object_object_add(j_eth, "sDNS2", json_object_new_string(""));
-        }
-
-        json_object_object_add(j_cfg, "link", j_eth);
-        json_object_object_add(j_cfg, "ipv4", j_ipv4);
-
-        json_object *j_db = (json_object *)database_networkip_json_get(interface);
-        if (j_db)
-            json_object_object_add(j_cfg, "dbconfig", j_db);
-        json_object_array_add(j_array, j_cfg);
-    }
-
+    json_object *j_array = (json_object *)get_networkip_json_array(interface);
     str = json_object_to_json_string(j_array);
 
     reply = dbus_message_new_method_return(msg);
@@ -327,6 +353,7 @@ static DBusMessage *get_networkip(DBusConnection *conn,
     dbus_message_iter_append_basic(&array, DBUS_TYPE_STRING, &str);
 
     json_object_put(j_array);
+
     netctl_free_service_list();
 
     return reply;

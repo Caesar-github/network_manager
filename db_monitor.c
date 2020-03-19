@@ -21,6 +21,7 @@
 #include "dbus_helpers.h"
 #include "netctl.h"
 #include "db_monitor.h"
+#include "network_func.h"
 
 static DBusConnection *connection = 0;
 
@@ -43,6 +44,11 @@ struct UserData {
     pthread_mutex_t mutex;
     char *json_str;
 };
+
+GHashTable *database_hash_network_ip_get(void)
+{
+    return db_networkip_hash;
+}
 
 void *database_networkip_get(char *interface)
 {
@@ -686,6 +692,58 @@ void dbserver_networkservice_set_connect(char *service, char *password, int *fav
                              DBSERVER_NET_INTERFACE, "Update",
                              NULL, NULL, append_path, json_config);
     json_object_put(j_cfg);
+}
+
+
+int database_network_config(struct NetworkConfig *config)
+{
+    printf("%s,hwaddr = %s, method = %s, ip = %s, mask = %s, gate = %s, dns1 = %s, dns2 = %s\n", __func__, config->hwaddr, config->method, config->ip, config->mask, config->gate, config->dns1, config->dns2);
+    GList *list, *values;
+    list = values = g_hash_table_get_values(db_networkip_hash);
+    while (values) {
+        struct NetworkIP *networkip = (struct NetworkIP *)values->data;
+        if (networkip != NULL) {
+             char *hwaddr = get_local_mac(networkip->interface);
+             if (g_str_equal(hwaddr, config->hwaddr)) {
+                 char *json_str;
+
+                 json_object *j_cfg = json_object_new_object();
+                 json_object *key = json_object_new_object();
+                 json_object *data = json_object_new_object();
+
+                 json_object_object_add(key, "sInterface", json_object_new_string(networkip->interface));
+                 if (config->method)
+                     json_object_object_add(data, "sV4Method", json_object_new_string(config->method));
+                 if (config->ip)
+                     json_object_object_add(data, "sV4Address", json_object_new_string(config->ip));
+                 if (config->mask)
+                     json_object_object_add(data, "sV4Netmask", json_object_new_string(config->mask));
+                 if (config->gate)
+                     json_object_object_add(data, "sV4Gateway", json_object_new_string(config->gate));
+
+                 json_object_object_add(j_cfg, "table", json_object_new_string(TABLE_NETWORK_IP));
+                 json_object_object_add(j_cfg, "key", key);
+                 json_object_object_add(j_cfg, "data", data);
+                 json_object_object_add(j_cfg, "cmd", json_object_new_string("Update"));
+
+                 json_str = (char *)json_object_to_json_string(j_cfg);
+
+                 dbus_helpers_method_call(connection,
+                                          DBSERVER, DBSERVER_PATH,
+                                          DBSERVER_NET_INTERFACE, "Cmd",
+                                          NULL, NULL, append_path, json_str);
+
+                 json_object_put(j_cfg);
+                 g_list_free(list);
+
+                 return 0;
+             }
+        }
+        values = values->next;
+    }
+    g_list_free(list);
+
+    return -1;
 }
 
 void database_init(void)
