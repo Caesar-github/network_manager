@@ -100,17 +100,6 @@ void syncntp(void)
 void syncnetconfig(struct PropertiesStatus *status)
 {
     if (status) {
-        struct NetworkService *networkservice = (struct NetworkService *)database_networkservice_get(status->service);
-
-        if (networkservice) {
-            if (g_str_equal(status->Type, "wifi") && status->Favorite != networkservice->Favorite) {
-                if (status->Favorite == 0)
-                    netctl_service_connect(status->service, networkservice->password);
-                else
-                    netctl_service_config_remove(status->service);
-            }
-        }
-
         if (g_str_equal(status->State, "online") || g_str_equal(status->State, "ready")) {
             struct NetworkIP *networkip = database_networkip_get(status->Ethernet.Interface);
             struct NtpCfg *ntp = database_ntp_get();
@@ -1771,6 +1760,26 @@ static void *network_priority_thread(void *arg)
                     list_tmp = list_tmp->next;
                 }
             }
+        }
+        list_tmp = g_list_first(services_list);
+        while (list_tmp) {
+            struct PropertiesStatus *status = (struct PropertiesStatus *)list_tmp->data;
+            if (g_str_equal(status->Type, "wifi")) {
+                struct NetworkService *networkservice = (struct NetworkService *)database_networkservice_get(status->service);
+
+                if (networkservice) {
+                    if (status->Favorite != networkservice->Favorite) {
+                        if (status->Favorite == 0)
+                            netctl_service_connect(status->service, networkservice->password);
+                        else
+                            netctl_service_config_remove(status->service);
+                    }
+                } else {
+                    if (status->Favorite == 1)
+                        netctl_service_config_remove(status->service);
+                }
+            }
+            list_tmp = list_tmp->next;
         }
 
         pthread_mutex_unlock(&service_mutex);
