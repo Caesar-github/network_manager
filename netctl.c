@@ -1752,7 +1752,7 @@ static void *network_priority_thread(void *arg)
                 while (list_tmp) {
                     struct PropertiesStatus *status = (struct PropertiesStatus *)list_tmp->data;
                     if (g_str_equal(status->Type, "wifi") && status_first->Favorite) {
-                        if (g_str_equal(status->State, "idle"))
+                        if (g_str_equal(status->State, "idle") && status->Favorite)
                             netctl_service_connect(status->service, "");
 
                         break;
