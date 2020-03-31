@@ -517,6 +517,7 @@ static int dbserver_networkip_get(void)
 {
     char *json_str;
     struct UserData userdata;
+    struct timespec tout;
 
     memset(&userdata, 0, sizeof(struct UserData));
     pthread_mutex_init(&userdata.mutex, NULL);
@@ -531,13 +532,19 @@ static int dbserver_networkip_get(void)
     json_object_object_add(j_cfg, "cmd", json_object_new_string("Select"));
 
     json_str = (char *)json_object_to_json_string(j_cfg);
-
+retry:
     dbus_helpers_method_call(connection,
                              DBSERVER, DBSERVER_PATH,
                              DBSERVER_NET_INTERFACE, "Cmd",
                              populate_dbserver_get, &userdata, append_path, json_str);
 
-    pthread_mutex_lock(&userdata.mutex);
+    clock_gettime(CLOCK_REALTIME, &tout);
+    tout.tv_sec += 1;
+
+    if (pthread_mutex_timedlock(&userdata.mutex, &tout) != 0) {
+        printf("%s again get\n", __func__);
+        goto retry;
+    }
     pthread_mutex_unlock(&userdata.mutex);
 
     json_object_put(j_cfg);
@@ -555,6 +562,7 @@ static int dbserver_networkpower_get(void)
 {
     char *json_str;
     struct UserData userdata;
+    struct timespec tout;
 
     memset(&userdata, 0, sizeof(struct UserData));
     pthread_mutex_init(&userdata.mutex, NULL);
@@ -569,13 +577,19 @@ static int dbserver_networkpower_get(void)
     json_object_object_add(j_cfg, "cmd", json_object_new_string("Select"));
 
     json_str = (char *)json_object_to_json_string(j_cfg);
-
+retry:
     dbus_helpers_method_call(connection,
                              DBSERVER, DBSERVER_PATH,
                              DBSERVER_NET_INTERFACE, "Cmd",
                              populate_dbserver_get, &userdata, append_path, json_str);
 
-    pthread_mutex_lock(&userdata.mutex);
+    clock_gettime(CLOCK_REALTIME, &tout);
+    tout.tv_sec += 1;
+
+    if (pthread_mutex_timedlock(&userdata.mutex, &tout) != 0) {
+        printf("%s again get\n", __func__);
+        goto retry;
+    }
     pthread_mutex_unlock(&userdata.mutex);
 
     json_object_put(j_cfg);
@@ -593,6 +607,7 @@ static int dbserver_ntp_get(void)
 {
     char *json_str;
     struct UserData userdata;
+    struct timespec tout;
 
     memset(&userdata, 0, sizeof(struct UserData));
     pthread_mutex_init(&userdata.mutex, NULL);
@@ -607,13 +622,19 @@ static int dbserver_ntp_get(void)
     json_object_object_add(j_cfg, "cmd", json_object_new_string("Select"));
 
     json_str = (char *)json_object_to_json_string(j_cfg);
-
+retry:
     dbus_helpers_method_call(connection,
                              DBSERVER, DBSERVER_PATH,
                              DBSERVER_NET_INTERFACE, "Cmd",
                              populate_dbserver_get, &userdata, append_path, json_str);
 
-    pthread_mutex_lock(&userdata.mutex);
+    clock_gettime(CLOCK_REALTIME, &tout);
+    tout.tv_sec += 1;
+
+    if (pthread_mutex_timedlock(&userdata.mutex, &tout) != 0) {
+        printf("%s again get\n", __func__);
+        goto retry;
+    }
     pthread_mutex_unlock(&userdata.mutex);
 
     json_object_put(j_cfg);
@@ -631,6 +652,7 @@ static int dbserver_networkservice_get(void)
 {
     char *json_str;
     struct UserData userdata;
+    struct timespec tout;
 
     memset(&userdata, 0, sizeof(struct UserData));
     pthread_mutex_init(&userdata.mutex, NULL);
@@ -645,13 +667,19 @@ static int dbserver_networkservice_get(void)
     json_object_object_add(j_cfg, "cmd", json_object_new_string("Select"));
 
     json_str = (char *)json_object_to_json_string(j_cfg);
-
+retry:
     dbus_helpers_method_call(connection,
                              DBSERVER, DBSERVER_PATH,
                              DBSERVER_NET_INTERFACE, "Cmd",
                              populate_dbserver_get, &userdata, append_path, json_str);
 
-    pthread_mutex_lock(&userdata.mutex);
+    clock_gettime(CLOCK_REALTIME, &tout);
+    tout.tv_sec += 1;
+
+    if (pthread_mutex_timedlock(&userdata.mutex, &tout) != 0) {
+        printf("%s again get\n", __func__);
+        goto retry;
+    }
     pthread_mutex_unlock(&userdata.mutex);
 
     json_object_put(j_cfg);

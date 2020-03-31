@@ -19,11 +19,13 @@
 
 static void *main_init(void *arg)
 {
+    printf("netserver init\n");
     netctl_init();
     database_init();
     manage_init();
     netctl_run();
     udp_broadcast_init();
+    printf("netserver finish\n");
 }
 
 int main( int argc , char ** argv)
