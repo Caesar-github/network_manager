@@ -69,15 +69,20 @@ void synczone()
 {
     struct NtpCfg *ntp = database_ntp_get();
     if ((ntp != NULL) && (clockcfg != NULL)) {
+        char *db_timezone;
         char *Timezone = strstr(clockcfg->Timezone, "(null)/");
         if (Timezone)
             Timezone += 7;
         else
             Timezone = clockcfg->Timezone;
-        printf("%s clockcfg->Timezone = %s, ntp->zone = %s\n", __func__, Timezone, ntp->zone);
-        if (!g_str_equal(Timezone, ntp->zone)) {
+        if (ntp->autodst)
+            db_timezone = ntp->timezonefiledst;
+        else
+            db_timezone = ntp->timezonefile;
+        printf("%s clockcfg->Timezone = %s, db_timezone = %s\n", __func__, Timezone, db_timezone);
+        if (!g_str_equal(Timezone, db_timezone)) {
             netctl_clock_config_timezoneupdates("manual");
-            netctl_clock_config_timezone(ntp->zone);
+            netctl_clock_config_timezone(db_timezone);
         }
     }
 }

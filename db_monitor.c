@@ -139,9 +139,19 @@ static void updatentp(char *name, void *data)
             g_free(ntp->servers);
         ntp->servers = g_strdup(data);
     } else if (g_str_equal(name, "sTimeZone")) {
-        if (ntp->zone)
-            g_free(ntp->zone);
-        ntp->zone = g_strdup(data);
+        if (ntp->timezone)
+            g_free(ntp->timezone);
+        ntp->timezone = g_strdup(data);
+    } else if (g_str_equal(name, "sTimeZoneFile")) {
+        if (ntp->timezonefile)
+            g_free(ntp->timezonefile);
+        ntp->timezonefile = g_strdup(data);
+    } else if (g_str_equal(name, "sTimeZoneFileDst")) {
+        if (ntp->timezonefiledst)
+            g_free(ntp->timezonefiledst);
+        ntp->timezonefiledst = g_strdup(data);
+    } else if (g_str_equal(name, "iAutoDst")) {
+        ntp->autodst = *(int *)data;
     } else if (g_str_equal(name, "iAutoMode")) {
         ntp->automode = *(int *)data;
     } else if (g_str_equal(name, "iRefreshTime")) {

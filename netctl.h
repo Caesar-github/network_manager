@@ -88,7 +88,10 @@ struct NetworkPower {
 
 struct NtpCfg {
     char *servers;
-    char *zone;
+    char *timezone;
+    char *timezonefile;
+    char *timezonefiledst;
+    int autodst;
     int automode;
     int time;
 };
