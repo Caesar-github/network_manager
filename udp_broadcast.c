@@ -74,11 +74,11 @@ static void *udp_broadcast_rx_thread(void *arg)
         if (ret > 0) {
             inet_ntop(AF_INET, &peer_addr.sin_addr.s_addr,
                     peer_name, sizeof(peer_name));
-            printf("Recv from %s, msg[%s]\n", peer_name, recv_msg);
+            //printf("Recv from %s, msg[%s]\n", peer_name, recv_msg);
             json_object *j_cfg = json_tokener_parse(recv_msg);
             if (j_cfg) {
                 char *sender = (char *)json_object_get_string(json_object_object_get(j_cfg, "Sender"));
-                printf("%s,sender = %s\n", __func__, sender);
+                //printf("%s,sender = %s\n", __func__, sender);
                 if (!strcmp("server", sender)) {
                     char *cmd = (char *)json_object_get_string(json_object_object_get(j_cfg, "Cmd"));
                     if (g_str_equal(cmd, SEEK_DEVICE)) {
