@@ -18,6 +18,23 @@ aux_source_directory(./ SRCS)
 add_executable(${PROJECT_NAME}
 	${SRCS})
 
+option(SANITIZER_STATIC "compile with sanitizer (static library linker)" OFF)
+if(SANITIZER_STATIC)
+	add_definitions(-fsanitize=address -static-libasan -g -ggdb -gdwarf -funwind-tables -rdynamic -O0)
+	add_definitions(-fno-stack-protector -fno-omit-frame-pointer -fsanitize-recover=address)
+	# add_definitions(-fsanitize=undefined)
+	target_link_libraries(${PROJECT_NAME} libasan.a dl m rt)
+endif()
+
+option(SANITIZER_DYNAMIC "compile with sanitizer (dynamic library linker)" OFF)
+if(SANITIZER_DYNAMIC)
+	# NOTE: copy libasan.so with manual operation
+	add_definitions(-fsanitize=address -g -ggdb -gdwarf -funwind-tables -rdynamic -O0)
+	add_definitions(-fno-stack-protector -fno-omit-frame-pointer -fsanitize-recover=address)
+	# add_definitions(-fsanitize=undefined)
+	target_link_libraries(${PROJECT_NAME} asan)
+endif()
+
 target_link_libraries(${PROJECT_NAME}
 	PkgConfig::GLIB
 	PkgConfig::DBUS
