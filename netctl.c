@@ -80,9 +80,11 @@ void synczone()
         else
             db_timezone = ntp->timezonefile;
         printf("%s clockcfg->Timezone = %s, db_timezone = %s\n", __func__, Timezone, db_timezone);
-        if (!g_str_equal(Timezone, db_timezone)) {
-            netctl_clock_config_timezoneupdates("manual");
-            netctl_clock_config_timezone(db_timezone);
+        if (db_timezone && Timezone) {
+            if (!g_str_equal(Timezone, db_timezone)) {
+                netctl_clock_config_timezoneupdates("manual");
+                netctl_clock_config_timezone(db_timezone);
+            }
         }
     }
 }
