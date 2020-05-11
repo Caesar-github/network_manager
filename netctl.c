@@ -110,7 +110,7 @@ void syncnetconfig(struct PropertiesStatus *status)
         if (g_str_equal(status->State, "online") || g_str_equal(status->State, "ready")) {
             struct NetworkIP *networkip = database_networkip_get(status->Ethernet.Interface);
             struct NtpCfg *ntp = database_ntp_get();
-            if (ntp != NULL) {
+            if (ntp && ntp->servers) {
                 if (!g_str_equal(status->Timeservers_config, ntp->servers))
                     netctl_service_config_timeservers(status->service, ntp->servers);
             }
