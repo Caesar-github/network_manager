@@ -742,7 +742,7 @@ int database_network_config(struct NetworkConfig *config)
         struct NetworkIP *networkip = (struct NetworkIP *)values->data;
         if (networkip != NULL) {
              char *hwaddr = get_local_mac(networkip->interface);
-             if (g_str_equal(hwaddr, config->hwaddr)) {
+             if (hwaddr && g_str_equal(hwaddr, config->hwaddr)) {
                  char *json_str;
 
                  json_object *j_cfg = json_object_new_object();
