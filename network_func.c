@@ -71,7 +71,7 @@ char *get_local_mac(char *interface)
     strncpy(ifr.ifr_name, interface, sizeof(ifr.ifr_name) - 1);
 
     if(ioctl(sd, SIOCGIFHWADDR, &ifr) < 0) {
-        printf("get %s mac address error\n", interface);
+        //printf("get %s mac address error\n", interface);
         close(sd);
         return mac;
     }

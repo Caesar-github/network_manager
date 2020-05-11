@@ -41,7 +41,7 @@ int udp_broadcast_tx(char *msg)
  
     sendto(sock, msg, strlen(msg), 0,
             (struct sockaddr *)&peer_addr, peer_addrlen);
-    printf("Done\n");
+    //printf("Done\n");
 }
 
 static void *udp_broadcast_rx_thread(void *arg)

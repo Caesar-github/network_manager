@@ -735,7 +735,7 @@ void dbserver_networkservice_set_connect(char *service, char *password, int *fav
 
 int database_network_config(struct NetworkConfig *config)
 {
-    printf("%s,hwaddr = %s, method = %s, ip = %s, mask = %s, gate = %s, dns1 = %s, dns2 = %s\n", __func__, config->hwaddr, config->method, config->ip, config->mask, config->gate, config->dns1, config->dns2);
+    //printf("%s,hwaddr = %s, method = %s, ip = %s, mask = %s, gate = %s, dns1 = %s, dns2 = %s\n", __func__, config->hwaddr, config->method, config->ip, config->mask, config->gate, config->dns1, config->dns2);
     GList *list, *values;
     list = values = g_hash_table_get_values(db_networkip_hash);
     while (values) {
@@ -758,6 +758,10 @@ int database_network_config(struct NetworkConfig *config)
                      json_object_object_add(data, "sV4Netmask", json_object_new_string(config->mask));
                  if (config->gate)
                      json_object_object_add(data, "sV4Gateway", json_object_new_string(config->gate));
+                 if (config->dns1)
+                     json_object_object_add(data, "sDNS1", json_object_new_string(config->dns1));
+                 if (config->dns2)
+                     json_object_object_add(data, "sDNS2", json_object_new_string(config->dns2));
 
                  json_object_object_add(j_cfg, "table", json_object_new_string(TABLE_NETWORK_IP));
                  json_object_object_add(j_cfg, "key", key);

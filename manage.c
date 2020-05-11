@@ -236,47 +236,80 @@ static DBusMessage *get_service(DBusConnection *conn,
 
 json_object *get_networkip_json(char *interface)
 {
-    json_object *j_cfg = json_object_new_object();
-    json_object *j_ipv4 = json_object_new_object();
-    json_object *j_eth = json_object_new_object();
-    char *v4ip = get_local_ip(interface);
-    char *mac = get_local_mac(interface);
-    char *netmask = get_local_netmask(interface);
-    char *gateway = get_gateway(interface);
+    char *type;
+    struct NetworkPower *networkpower;
+    json_object *j_cfg;
+    json_object *j_ipv4;
+    json_object *j_eth;
+    char *v4ip = NULL;
+    char *mac;
+    char *netmask = NULL;
+    char *gateway = NULL;
     char *dns1 = NULL;
     char *dns2 = NULL;
-    netctl_getdns(interface, &dns1, &dns2);
+
+    mac = get_local_mac(interface);
+
+    if (mac == NULL)
+        return NULL;
+
+    j_cfg = json_object_new_object();
+    j_ipv4 = json_object_new_object();
+    j_eth = json_object_new_object();
 
     json_object_object_add(j_eth, "sInterface", json_object_new_string(interface));
-    if (mac) {
-        json_object_object_add(j_eth, "sAddress", json_object_new_string(mac));
-        g_free(mac);
-    }
 
-    if (g_str_equal(interface, "eth0")) {
-        struct ethtool_cmd ep;
-        memset(&ep, 0, sizeof(struct ethtool_cmd));
-        get_ethernet_tool(interface, &ep);
-        json_object_object_add(j_eth, "iNicSpeed", json_object_new_int(ep.speed));
-        json_object_object_add(j_eth, "iDuplex", json_object_new_int(ep.duplex));
+    json_object_object_add(j_eth, "sAddress", json_object_new_string(mac));
+    g_free(mac);
+
+    netctl_getdns(interface, &dns1, &dns2);
+
+    if (strstr(interface, "eth"))
+        type = "ethernet";
+    else
+        type = "wifi";
+
+    networkpower = database_networkpower_get(type);
+    if (networkpower && networkpower->power) {
+        if (g_str_equal(type, "ethernet")) {
+            struct ethtool_cmd ep;
+            memset(&ep, 0, sizeof(struct ethtool_cmd));
+            get_ethernet_tool(interface, &ep);
+            json_object_object_add(j_eth, "iNicSpeed", json_object_new_int(ep.speed));
+            json_object_object_add(j_eth, "iDuplex", json_object_new_int(ep.duplex));
+        } else {
+            json_object_object_add(j_eth, "iNicSpeed", json_object_new_int(-1));
+            json_object_object_add(j_eth, "iDuplex", json_object_new_int(-1));
+        }
+        v4ip = get_local_ip(interface);
+        netmask = get_local_netmask(interface);
+        gateway = get_gateway(interface);
+        json_object_object_add(j_eth, "iPower", json_object_new_int(networkpower->power));
     } else {
         json_object_object_add(j_eth, "iNicSpeed", json_object_new_int(-1));
         json_object_object_add(j_eth, "iDuplex", json_object_new_int(-1));
+        json_object_object_add(j_eth, "iPower", json_object_new_int(0));
     }
 
     if (v4ip) {
         json_object_object_add(j_ipv4, "sV4Address", json_object_new_string(v4ip));
         g_free(v4ip);
+    } else {
+        json_object_object_add(j_ipv4, "sV4Address", json_object_new_string(""));
     }
 
     if (netmask) {
         json_object_object_add(j_ipv4, "sV4Netmask", json_object_new_string(netmask));
         g_free(netmask);
+    } else {
+        json_object_object_add(j_ipv4, "sV4Netmask", json_object_new_string(""));
     }
 
     if (gateway) {
         json_object_object_add(j_ipv4, "sV4Gateway", json_object_new_string(gateway));
         g_free(gateway);
+    } else {
+        json_object_object_add(j_ipv4, "sV4Gateway", json_object_new_string(""));
     }
 
     if (dns1) {
@@ -314,7 +347,8 @@ void *get_networkip_json_array(char *interface)
             struct NetworkIP *networkip = (struct NetworkIP *)values->data;
             if (networkip != NULL) {
                 json_object *j_cfg = get_networkip_json(networkip->interface);
-                json_object_array_add(j_array, j_cfg);
+                if (j_cfg)
+                    json_object_array_add(j_array, j_cfg);
             }
             values = values->next;
         }
