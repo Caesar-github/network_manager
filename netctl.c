@@ -116,6 +116,9 @@ void syncnetconfig(struct PropertiesStatus *status)
             }
 
             if (networkip) {
+                if (g_str_equal(status->Type, "ethernet"))
+                    get_ethernet_tool_speed_set(status->Ethernet.Interface, networkip->nicspeed);
+
                 if ((networkip->IPv4.Method != NULL) && (status->IPv4_config.Method != NULL)) {
                     if (!g_str_equal(networkip->IPv4.Method, status->IPv4_config.Method)) {
                         if (g_str_equal(networkip->IPv4.Method, "manual") || g_str_equal(networkip->IPv4.Method, "dhcp"))

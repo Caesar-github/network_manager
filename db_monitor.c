@@ -105,6 +105,7 @@ void *database_networkip_json_get(char *interface)
         json_object_object_add(j_cfg, "sV4Gateway", json_object_new_string(networkip->IPv4.Gateway));
         json_object_object_add(j_cfg, "sDNS1", json_object_new_string(networkip->dns1));
         json_object_object_add(j_cfg, "sDNS2", json_object_new_string(networkip->dns2));
+        json_object_object_add(j_cfg, "sNicSpeed", json_object_new_string(networkip->nicspeed));
 
         return (void *)j_cfg;
     }
@@ -181,6 +182,7 @@ static void updatehash_network_ip(char *interface, char *name, void *data)
         networkip->IPv4.Gateway = g_strdup("");
         networkip->dns1 = g_strdup("");
         networkip->dns2 = g_strdup("");
+        networkip->nicspeed = g_strdup("");
         g_hash_table_replace(db_networkip_hash, g_strdup(interface), (gpointer)networkip);
     }
     if (g_str_equal(name, "sV4Method")) {
@@ -211,6 +213,10 @@ static void updatehash_network_ip(char *interface, char *name, void *data)
         if (networkip->type)
             g_free(networkip->type);
         networkip->type = g_strdup(data);
+    } else if (g_str_equal(name, "sNicSpeed")) {
+        if (networkip->nicspeed)
+            g_free(networkip->nicspeed);
+        networkip->nicspeed = g_strdup(data);
     } 
 }
 

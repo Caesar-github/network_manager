@@ -273,11 +273,21 @@ json_object *get_networkip_json(char *interface)
     if (networkpower && networkpower->power) {
         if (g_str_equal(type, "ethernet")) {
             struct ethtool_cmd ep;
+            char speed[256];
+            memset(speed, 0, 256);
             memset(&ep, 0, sizeof(struct ethtool_cmd));
             get_ethernet_tool(interface, &ep);
+            get_ethernet_speedsupport(speed, &ep);
+            json_object_object_add(j_eth, "sNicSpeedSupport", json_object_new_string(speed));
+            memset(speed, 0, 256);
+            get_ethernet_speed(speed, &ep);
+            json_object_object_add(j_eth, "sNicSpeed", json_object_new_string(speed));
             json_object_object_add(j_eth, "iNicSpeed", json_object_new_int(ep.speed));
             json_object_object_add(j_eth, "iDuplex", json_object_new_int(ep.duplex));
+
         } else {
+            json_object_object_add(j_eth, "sNicSpeed", json_object_new_string(""));
+            json_object_object_add(j_eth, "sNicSpeedSupport", json_object_new_string(""));
             json_object_object_add(j_eth, "iNicSpeed", json_object_new_int(-1));
             json_object_object_add(j_eth, "iDuplex", json_object_new_int(-1));
         }
@@ -378,7 +388,7 @@ static DBusMessage *get_networkip(DBusConnection *conn,
 
     json_object *j_array = (json_object *)get_networkip_json_array(interface);
     str = json_object_to_json_string(j_array);
-
+printf("%s, %s\n", __func__, str);
     reply = dbus_message_new_method_return(msg);
     if (!reply)
         return NULL;

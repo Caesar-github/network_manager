@@ -78,6 +78,7 @@ struct NetworkIP {
     char *type;
     char *dns1;
     char *dns2;
+    char *nicspeed;
     struct IPv4Status IPv4;
 };
 
