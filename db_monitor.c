@@ -42,8 +42,24 @@ static struct NtpCfg *ntp = NULL;
 
 struct UserData {
     pthread_mutex_t mutex;
-    char *json_str;
+    pthread_cond_t cond;
+    int status;
+    int ret;
 };
+
+struct UserData get_ntp_userdata = {PTHREAD_MUTEX_INITIALIZER, PTHREAD_COND_INITIALIZER, 0, 0};
+struct UserData get_service_userdata = {PTHREAD_MUTEX_INITIALIZER, PTHREAD_COND_INITIALIZER, 0, 0};
+struct UserData get_ip_userdata = {PTHREAD_MUTEX_INITIALIZER, PTHREAD_COND_INITIALIZER, 0, 0};
+struct UserData get_power_userdata = {PTHREAD_MUTEX_INITIALIZER, PTHREAD_COND_INITIALIZER, 0, 0};
+
+static void cond_signal(struct UserData *userdata, int ret)
+{
+    userdata->ret = ret;
+    userdata->status = 1;
+    pthread_mutex_lock(&userdata->mutex);
+    pthread_cond_signal(&userdata->cond);
+    pthread_mutex_unlock(&userdata->mutex);
+}
 
 GHashTable *database_hash_network_ip_get(void)
 {
@@ -364,36 +380,19 @@ static void DataChanged(char *json_str)
     json_object_put(j_cfg);
 }
 
-static int populate_dbserver_get(DBusMessageIter *iter, const char *error,
+static int populate_dbserver_get_ntp(DBusMessageIter *iter, const char *error,
                                             void *user_data)
 {
     char *json_str;
     json_object *j_array;
-    struct UserData *userdata = (struct UserData *)user_data;
+    json_object *j_ret;
 
     if (error) {
-        if (userdata) {
-            userdata->json_str = NULL;
-            pthread_mutex_unlock(&userdata->mutex);
-        }
-
+        cond_signal(&get_ntp_userdata, -1);
         return 0;
     }
 
     dbus_message_iter_get_basic(iter, &json_str);
-
-    if (userdata) {
-        userdata->json_str = g_strdup(json_str);
-        pthread_mutex_unlock(&userdata->mutex);
-    }
-
-    return 0;
-}
-
-static int populate_dbserver_get_ntp(char *json_str)
-{
-    json_object *j_array;
-    json_object *j_ret;
 
     j_ret = json_tokener_parse(json_str);
     j_array = json_object_object_get(j_ret, "jData");
@@ -413,14 +412,24 @@ static int populate_dbserver_get_ntp(char *json_str)
         }
     }
     json_object_put(j_ret);
+    cond_signal(&get_ntp_userdata, 0);
 
     return 0;
 }
 
-static int populate_dbserver_networkservice_get(char *json_str)
+static int populate_dbserver_networkservice_get(DBusMessageIter *iter, const char *error,
+                                            void *user_data)
 {
+    char *json_str;
     json_object *j_array;
     json_object *j_ret;
+
+    if (error) {
+        cond_signal(&get_service_userdata, -1);
+        return 0;
+    }
+
+    dbus_message_iter_get_basic(iter, &json_str);
 
     j_ret = json_tokener_parse(json_str);
     j_array = json_object_object_get(j_ret, "jData");
@@ -441,15 +450,24 @@ static int populate_dbserver_networkservice_get(char *json_str)
         }
     }
     json_object_put(j_ret);
+    cond_signal(&get_service_userdata, 0);
 
     return 0;
 }
 
-static int populate_dbserver_networkip_get(char *json_str)
+static int populate_dbserver_networkip_get(DBusMessageIter *iter, const char *error,
+                                            void *user_data)
 {
-    json_object *j_ret;
+    char *json_str;
     json_object *j_array;
+    json_object *j_ret;
 
+    if (error) {
+        cond_signal(&get_ip_userdata, -1);
+        return 0;
+    }
+
+    dbus_message_iter_get_basic(iter, &json_str);
 
     j_ret = json_tokener_parse(json_str);
     j_array = json_object_object_get(j_ret, "jData");
@@ -472,14 +490,24 @@ static int populate_dbserver_networkip_get(char *json_str)
         }
     }
     json_object_put(j_ret);
+    cond_signal(&get_ip_userdata, 0);
 
     return 0;
 }
 
-static int populate_dbserver_networkpower_get(char *json_str)
+static int populate_dbserver_networkpower_get(DBusMessageIter *iter, const char *error,
+                                            void *user_data)
 {
-    json_object *j_ret;
+    char *json_str;
     json_object *j_array;
+    json_object *j_ret;
+
+    if (error) {
+        cond_signal(&get_power_userdata, -1);
+        return 0;
+    }
+
+    dbus_message_iter_get_basic(iter, &json_str);
 
     j_ret = json_tokener_parse(json_str);
     j_array = json_object_object_get(j_ret, "jData");
@@ -502,6 +530,7 @@ static int populate_dbserver_networkpower_get(char *json_str)
         }
     }
     json_object_put(j_ret);
+    cond_signal(&get_power_userdata, 0);
 
     return 0;
 }
@@ -532,12 +561,10 @@ static DBusHandlerResult database_monitor_changed(
 static int dbserver_networkip_get(void)
 {
     char *json_str;
-    struct UserData userdata;
     struct timespec tout;
 
-    memset(&userdata, 0, sizeof(struct UserData));
-    pthread_mutex_init(&userdata.mutex, NULL);
-    pthread_mutex_lock(&userdata.mutex);
+    pthread_mutex_lock(&get_ip_userdata.mutex);
+    get_ip_userdata.status = 0;
 
     json_object *j_cfg = json_object_new_object();
     json_object *key = json_object_new_object();
@@ -552,37 +579,31 @@ retry:
     dbus_helpers_method_call(connection,
                              DBSERVER, DBSERVER_PATH,
                              DBSERVER_NET_INTERFACE, "Cmd",
-                             populate_dbserver_get, &userdata, append_path, json_str);
+                             populate_dbserver_networkip_get, NULL, append_path, json_str);
 
     clock_gettime(CLOCK_REALTIME, &tout);
-    tout.tv_sec += 1;
+    tout.tv_sec += 2;
 
-    if (pthread_mutex_timedlock(&userdata.mutex, &tout) != 0) {
-        printf("%s again get\n", __func__);
-        goto retry;
+    if (get_ip_userdata.status == 0) {
+        if (pthread_cond_timedwait(&get_ip_userdata.cond, &get_ip_userdata.mutex, &tout) != 0) {
+            printf("%s again get\n", __func__);
+            goto retry;
+        }
     }
-    pthread_mutex_unlock(&userdata.mutex);
+    pthread_mutex_unlock(&get_ip_userdata.mutex);
 
     json_object_put(j_cfg);
 
-    if (userdata.json_str) {
-        populate_dbserver_networkip_get(userdata.json_str);
-        g_free(userdata.json_str);
-        return 0;
-    }
-
-    return -1;
+    return get_ip_userdata.ret;
 }
 
 static int dbserver_networkpower_get(void)
 {
     char *json_str;
-    struct UserData userdata;
     struct timespec tout;
 
-    memset(&userdata, 0, sizeof(struct UserData));
-    pthread_mutex_init(&userdata.mutex, NULL);
-    pthread_mutex_lock(&userdata.mutex);
+    pthread_mutex_lock(&get_power_userdata.mutex);
+    get_power_userdata.status = 0;
     
     json_object *j_cfg = json_object_new_object();
     json_object *key = json_object_new_object();
@@ -597,37 +618,31 @@ retry:
     dbus_helpers_method_call(connection,
                              DBSERVER, DBSERVER_PATH,
                              DBSERVER_NET_INTERFACE, "Cmd",
-                             populate_dbserver_get, &userdata, append_path, json_str);
+                             populate_dbserver_networkpower_get, NULL, append_path, json_str);
 
     clock_gettime(CLOCK_REALTIME, &tout);
-    tout.tv_sec += 1;
+    tout.tv_sec += 2;
 
-    if (pthread_mutex_timedlock(&userdata.mutex, &tout) != 0) {
-        printf("%s again get\n", __func__);
-        goto retry;
+    if (get_power_userdata.status == 0) {
+        if (pthread_cond_timedwait(&get_power_userdata.cond, &get_power_userdata.mutex, &tout) != 0) {
+            printf("%s again get\n", __func__);
+            goto retry;
+        }
     }
-    pthread_mutex_unlock(&userdata.mutex);
+    pthread_mutex_unlock(&get_power_userdata.mutex);
 
     json_object_put(j_cfg);
 
-    if (userdata.json_str) {
-        populate_dbserver_networkpower_get(userdata.json_str);
-        g_free(userdata.json_str);
-        return 0;
-    }
-
-    return -1;
+    return get_power_userdata.ret;
 }
 
 static int dbserver_ntp_get(void)
 {
     char *json_str;
-    struct UserData userdata;
     struct timespec tout;
 
-    memset(&userdata, 0, sizeof(struct UserData));
-    pthread_mutex_init(&userdata.mutex, NULL);
-    pthread_mutex_lock(&userdata.mutex);
+    pthread_mutex_lock(&get_ntp_userdata.mutex);
+    get_ntp_userdata.status = 0;
 
     json_object *j_cfg = json_object_new_object();
     json_object *key = json_object_new_object();
@@ -642,37 +657,32 @@ retry:
     dbus_helpers_method_call(connection,
                              DBSERVER, DBSERVER_PATH,
                              DBSERVER_NET_INTERFACE, "Cmd",
-                             populate_dbserver_get, &userdata, append_path, json_str);
+                             populate_dbserver_get_ntp, NULL, append_path, json_str);
 
     clock_gettime(CLOCK_REALTIME, &tout);
-    tout.tv_sec += 1;
+    tout.tv_sec += 2;
 
-    if (pthread_mutex_timedlock(&userdata.mutex, &tout) != 0) {
-        printf("%s again get\n", __func__);
-        goto retry;
+    if (get_ntp_userdata.status == 0) {
+        if (pthread_cond_timedwait(&get_ntp_userdata.cond, &get_ntp_userdata.mutex, &tout) != 0) {
+            printf("%s again get\n", __func__);
+            goto retry;
+        }
     }
-    pthread_mutex_unlock(&userdata.mutex);
+
+    pthread_mutex_unlock(&get_ntp_userdata.mutex);
 
     json_object_put(j_cfg);
 
-    if (userdata.json_str) {
-        populate_dbserver_get_ntp(userdata.json_str);
-        g_free(userdata.json_str);
-        return 0;
-    }
-
-    return -1;
+    return get_ntp_userdata.ret;
 }
 
 static int dbserver_networkservice_get(void)
 {
     char *json_str;
-    struct UserData userdata;
     struct timespec tout;
 
-    memset(&userdata, 0, sizeof(struct UserData));
-    pthread_mutex_init(&userdata.mutex, NULL);
-    pthread_mutex_lock(&userdata.mutex);
+    pthread_mutex_lock(&get_service_userdata.mutex);
+    get_service_userdata.status = 0;
 
     json_object *j_cfg = json_object_new_object();
     json_object *key = json_object_new_object();
@@ -687,26 +697,23 @@ retry:
     dbus_helpers_method_call(connection,
                              DBSERVER, DBSERVER_PATH,
                              DBSERVER_NET_INTERFACE, "Cmd",
-                             populate_dbserver_get, &userdata, append_path, json_str);
+                             populate_dbserver_networkservice_get, NULL, append_path, json_str);
 
     clock_gettime(CLOCK_REALTIME, &tout);
-    tout.tv_sec += 1;
+    tout.tv_sec += 2;
 
-    if (pthread_mutex_timedlock(&userdata.mutex, &tout) != 0) {
-        printf("%s again get\n", __func__);
-        goto retry;
+    if (get_service_userdata.status == 0) {
+        if (pthread_cond_timedwait(&get_service_userdata.cond, &get_service_userdata.mutex, &tout) != 0) {
+            printf("%s again get\n", __func__);
+            goto retry;
+        }
     }
-    pthread_mutex_unlock(&userdata.mutex);
+
+    pthread_mutex_unlock(&get_service_userdata.mutex);
 
     json_object_put(j_cfg);
 
-    if (userdata.json_str) {
-        populate_dbserver_networkservice_get(userdata.json_str);
-        g_free(userdata.json_str);
-        return 0;
-    }
-
-    return -1;
+    return get_service_userdata.ret;
 }
 
 void dbserver_networkservice_set_connect(char *service, char *password, int *favorite, int *autoconnect)
@@ -737,7 +744,6 @@ void dbserver_networkservice_set_connect(char *service, char *password, int *fav
                              NULL, NULL, append_path, json_config);
     json_object_put(j_cfg);
 }
-
 
 int database_network_config(struct NetworkConfig *config)
 {
