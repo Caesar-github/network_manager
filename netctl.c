@@ -107,7 +107,7 @@ void syncntp(void)
 void syncnetconfig(struct PropertiesStatus *status)
 {
     if (status) {
-        if (g_str_equal(status->State, "online") || g_str_equal(status->State, "ready")) {
+        if (g_str_equal(status->State, "online") || g_str_equal(status->State, "ready") || g_str_equal(status->State, "configuration")) {
             struct NetworkIP *networkip = database_networkip_get(status->Ethernet.Interface);
             struct NtpCfg *ntp = database_ntp_get();
             if (ntp && ntp->servers) {
