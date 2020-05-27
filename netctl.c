@@ -183,6 +183,17 @@ void SyncOneNetconfig(char *service)
     pthread_mutex_unlock(&service_mutex);
 }
 
+void ConnectService(char *service)
+{
+    pthread_mutex_lock(&service_mutex);
+    struct PropertiesStatus *status = get_status_by_service(service);
+
+    if (status)
+        status->NeedConnect = 1;
+
+    pthread_mutex_unlock(&service_mutex);
+}
+
 void updateclock(char *name, char *data)
 {
     printf("%s %s %s\n", __func__, name, data);
@@ -355,8 +366,6 @@ static void add_technology(DBusMessageIter *iter)
 
 static void free_properties_status(struct PropertiesStatus *status)
 {
-    int i;
-
     if (status) {
         if (status->service)
             g_free(status->service);
@@ -364,6 +373,8 @@ static void free_properties_status(struct PropertiesStatus *status)
             g_free(status->Type);
         if (status->State)
             g_free(status->State);
+        if (status->Error)
+            g_free(status->Error);
         if (status->Security)
             g_free(status->Security);
         if (status->Nameservers)
@@ -402,6 +413,14 @@ static void free_properties_status(struct PropertiesStatus *status)
             g_free(status->IPv4_config.Gateway);
 
         free(status);
+    }
+}
+
+static void clean_properties_status(struct PropertiesStatus *status)
+{
+    if (status) {
+        if (status->Error)
+            sprintf(status->Error, "");
     }
 }
 
@@ -460,6 +479,15 @@ static void resolve_ipv4(DBusMessageIter* iter, struct IPv4Status *IPv4)
     DBusMessageIter subentry;
     char *strname;
     char *strval;
+
+    if (IPv4->Method)
+        sprintf(IPv4->Method, "");
+    if (IPv4->Address)
+        sprintf(IPv4->Address, "");
+    if (IPv4->Netmask)
+        sprintf(IPv4->Netmask, "");
+    if (IPv4->Gateway)
+        sprintf(IPv4->Gateway, "");
 
     dbus_message_iter_recurse(iter, &entry);
 
@@ -594,6 +622,12 @@ static void resolve_properties(DBusMessageIter *iter, struct PropertiesStatus *s
             if (status->State)
                 g_free(status->State);
             status->State = g_strdup(strval);
+        } else if (strcmp(strname, "Error") == 0) {
+            dbus_message_iter_get_basic(&valentry, &strval);
+            DEBUG_INFO("%s = %s", strname, strval);
+            if (status->Error)
+                g_free(status->Error);
+            status->Error = g_strdup(strval);
         } else if (strcmp(strname, "Favorite") == 0) {
             dbus_message_iter_get_basic(&valentry, &bval);
             DEBUG_INFO("%s = %d", strname, bval);
@@ -629,6 +663,7 @@ static struct PropertiesStatus *allocproertiesstatus(char *service)
     struct PropertiesStatus *status = malloc(sizeof(struct PropertiesStatus));
     memset(status, 0, sizeof(struct PropertiesStatus));
     status->service = g_strdup(service);
+    status->Error = g_strdup("");
 
     status->IPv4.Method = g_strdup("");
     status->IPv4.Address = g_strdup("");
@@ -786,6 +821,14 @@ static void ServicePropertyChanged(char *path, DBusMessageIter* iter)
         } else if (strcmp(strname, "Favorite") == 0) {
             dbus_message_iter_get_basic(&entry, &cval);
             status->Favorite = cval;
+        } else if (strcmp(strname, "Error") == 0) {
+            if (status->Error)
+                g_free(status->Error);
+            status->Error = 0;
+            if (dbus_message_iter_get_arg_type(&entry) == DBUS_TYPE_STRING) {
+                dbus_message_iter_get_basic(&entry, &strval);
+                status->Error = g_strdup(strval);
+            }
         }
     }
     pthread_mutex_unlock(&service_mutex);
@@ -818,7 +861,7 @@ static void services_update(DBusMessageIter *iter)
 
         status = get_status_del_by_service(path);//(struct PropertiesStatus *)g_hash_table_lookup(netinfo.service_hash, path);
         if (status == NULL)
-            status = allocproertiesstatus(get_path(path));
+            status = allocproertiesstatus(path);
 
         list = g_list_insert(list, status, i++);
 
@@ -1151,6 +1194,48 @@ static int agent_onoff(int onoff)
     }
 
     return 0;
+}
+
+static int object_properties(DBusMessageIter *iter,
+					const char *error, void *user_data)
+{
+    char *path = user_data;
+    char *str;
+    DBusMessageIter entry;
+
+    if (!error) {
+        dbus_message_iter_recurse(iter, &entry);
+        while (dbus_message_iter_get_arg_type(&entry) == DBUS_TYPE_DICT_ENTRY) {
+            DBusMessageIter subentry;
+
+            dbus_message_iter_recurse(&entry, &subentry);
+            ServicePropertyChanged(path, &subentry);
+            dbus_message_iter_next(&entry);
+        }
+    } else {
+        str = strrchr(path, '/');
+        if (str)
+            str++;
+        else
+            str = path;
+
+        printf("Error %s: %s\n", str, error);
+    }
+
+    g_free(user_data);
+
+    return 0;
+}
+
+static int get_service(struct PropertiesStatus *status)
+{
+    char *path;
+
+    clean_properties_status(status);
+    path = g_strdup_printf("/net/connman/service/%s", status->service);
+    return __connmanctl_dbus_method_call(connection, CONNMAN_SERVICE, path,
+                                         "net.connman.Service", "GetProperties",
+                                         object_properties, path, NULL, NULL);
 }
 
 static void __connmanctl_monitor_completions(DBusConnection *dbus_conn)
@@ -1582,16 +1667,24 @@ void netctl_service_config_ipv4(char *service, struct IPv4Status *config)
     g_free(path);
 }
 
-void netctl_service_config_remove(char *service)
+void netctl_service_config_remove(struct PropertiesStatus *status)
 {
     char *path;
 
-    path = g_strdup_printf("/net/connman/service/%s", service);
+    clean_properties_status(status);
+
+    path = g_strdup_printf("/net/connman/service/%s", status->service);
     __connmanctl_dbus_method_call(connection,
                                   CONNMAN_SERVICE, path,
                                   "net.connman.Service", "Remove",
                                   config_return, path,
                                   NULL, NULL);
+
+    path = g_strdup_printf("/net/connman/service/%s", status->service);
+    __connmanctl_dbus_method_call(connection,
+                                  CONNMAN_SERVICE, path,
+                                  "net.connman.Service", "GetProperties",
+                                  object_properties, path, NULL, NULL);
 }
 
 static int move_before_return(DBusMessageIter *iter, const char *error,
@@ -1726,7 +1819,6 @@ void netctl_set_wifi_power(int onoff)
     technologies_power("wifi", onoff);
 }
 
-
 static void *network_priority_thread(void *arg)
 {
     int cnt = 10;
@@ -1746,56 +1838,85 @@ static void *network_priority_thread(void *arg)
         GList* list_tmp = g_list_first(services_list);
         if (list_tmp) {
             struct PropertiesStatus *status_first = (struct PropertiesStatus *)list_tmp->data;
-            list_tmp = list_tmp->next;
-            if (g_str_equal(status_first->Type, "wifi")) {
-                if (status_first->Favorite) {
-                    while (list_tmp) {
-                        struct PropertiesStatus *status = (struct PropertiesStatus *)list_tmp->data;
-                        if (g_str_equal(status->Type, "ethernet") && g_str_equal(status->State, "ready")) {
-                            netctl_service_move_before(status->service, status_first->service);
-                            break;
-                        }
-                        list_tmp = list_tmp->next;
+            int need_connectwifi = -1;
+            int have_eth = 0;
+            while (list_tmp) {
+                struct PropertiesStatus *status = (struct PropertiesStatus *)list_tmp->data;
+                if (g_str_equal(status->Type, "wifi")) {
+                    if ((g_str_equal(status->State, "ready") || g_str_equal(status->State, "online") || g_str_equal(status->State, "association")))
+                        need_connectwifi = 0;
+                    else if (g_str_equal(status->State, "idle") && (need_connectwifi == -1))
+                        need_connectwifi = 1;
+
+                    if (status->Favorite) {
+                        struct NetworkService *networkservice = (struct NetworkService *)database_networkservice_get(status->service);
+                        if (networkservice == NULL)
+                            netctl_service_config_remove(status);
                     }
+                    if (status->NeedConnect) {
+                        status->NeedConnect = 0;
+                        struct NetworkService *networkservice = (struct NetworkService *)database_networkservice_get(status->service);
+                        if (networkservice) {
+                            if (status->Favorite) {
+                                netctl_service_connect(status->service, "");
+                            } else {
+                                netctl_service_connect(status->service, networkservice->password);
+                            }
+                            need_connectwifi = 0;
+                        }
+                    }
+                    if (!g_str_equal(status->Error, "")) {
+                        dbserver_networkservice_remove(status->service);
+                        netctl_service_config_remove(status);
+                    }
+                } else if (g_str_equal(status->Type, "ethernet")) {
+                    if (g_str_equal(status->State, "ready"))
+                        have_eth = 1;
                 }
-            } else if (g_str_equal(status_first->Type, "ethernet")) {
+                list_tmp = list_tmp->next;
+            }
+
+            if (need_connectwifi == 1) {
+                list_tmp = g_list_first(services_list);
                 while (list_tmp) {
                     struct PropertiesStatus *status = (struct PropertiesStatus *)list_tmp->data;
-                    if (g_str_equal(status->Type, "wifi") && status_first->Favorite) {
-                        if (g_str_equal(status->State, "idle") && status->Favorite) {
+                    if (g_str_equal(status->Type, "wifi")) {
+                        if (status->Favorite) {
+                            if (g_str_equal(status->State, "idle") && g_str_equal(status->Error, "")) {
+                                printf("%s connect %s, Error = %s, State = %s\n", __func__, status->service, status->Error, status->State);
+                                netctl_service_connect(status->service, "");
+                                break;
+                            }
+                        } else {
                             struct NetworkService *networkservice = (struct NetworkService *)database_networkservice_get(status->service);
 
-                            if (networkservice)
-                                netctl_service_connect(status->service, "");
+                            if (networkservice) {
+                                printf("%s need connect %s, pass = %s, State = %s, Error = %s\n", __func__, status->service, networkservice->password, status->State, status->Error);
+                                if (!g_str_equal(status->Error, "invalid-key")) {
+                                    netctl_service_connect(status->service, networkservice->password);
+                                    break;
+                                }
+                            }
                         }
+                    }
+                    list_tmp = list_tmp->next;
+                }
+            }
 
+            if (have_eth && !g_str_equal(status_first->Type, "ethernet")) {
+                printf("%s need move ethernet\n", __func__);
+                list_tmp = g_list_first(services_list);
+                list_tmp = list_tmp->next;
+                while (list_tmp) {
+                    struct PropertiesStatus *status = (struct PropertiesStatus *)list_tmp->data;
+                    if (g_str_equal(status->Type, "ethernet") && g_str_equal(status->State, "ready")) {
+                        netctl_service_move_before(status->service, status_first->service);
                         break;
                     }
                     list_tmp = list_tmp->next;
                 }
             }
         }
-        list_tmp = g_list_first(services_list);
-        while (list_tmp) {
-            struct PropertiesStatus *status = (struct PropertiesStatus *)list_tmp->data;
-            if (g_str_equal(status->Type, "wifi")) {
-                struct NetworkService *networkservice = (struct NetworkService *)database_networkservice_get(status->service);
-
-                if (networkservice) {
-                    if (status->Favorite != networkservice->Favorite) {
-                        if (status->Favorite == 0)
-                            netctl_service_connect(status->service, networkservice->password);
-                        else
-                            netctl_service_config_remove(status->service);
-                    }
-                } else {
-                    if (status->Favorite == 1)
-                        netctl_service_config_remove(status->service);
-                }
-            }
-            list_tmp = list_tmp->next;
-        }
-
         pthread_mutex_unlock(&service_mutex);
     }
 

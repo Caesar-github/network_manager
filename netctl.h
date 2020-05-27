@@ -57,10 +57,12 @@ struct PropertiesStatus {
     char *Nameservers_config;
     char *Timeservers;
     char *Timeservers_config;
+    char *Error;
     int Favorite;
     int Immutable;
     int AutoConnect;
     int Strength;
+    int NeedConnect;
     struct EthernetStatus Ethernet;
     struct IPv4Status IPv4;
     struct IPv4Status IPv4_config;
@@ -105,7 +107,7 @@ void netctl_registered_call(void (*fun)(Massage_Type));
 void netctl_unregistered_call(void);
 void netctl_service_config_timeservers(char *service, char *ntp);
 void netctl_service_config_nameservers(char *service, char *dns);
-void netctl_service_config_remove(char *service);
+void netctl_service_config_remove(struct PropertiesStatus *status);
 void netctl_wifi_scan(void);
 void netctl_service_config_ipv4(char *service, struct IPv4Status *config);//config->Method:dhcp,manual
 void netctl_service_config_ipv4_dhcp(char *service);
@@ -130,5 +132,6 @@ void netctl_clock_config_timezone(char *zone);
 void netctl_run(void);
 void netctl_getdns(char *interface, char **dns1, char **dns2);
 void netctl_service_move_before(char *service, char *target);
+void ConnectService(char *service);
 
 #endif

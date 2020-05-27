@@ -358,7 +358,7 @@ static void DataChanged(char *json_str)
                     data = (void *)json_object_get_string(val);
                 updatehash_networkservice(service, key, data);
             }
-            SyncOneNetconfig(service);
+            ConnectService(service);
         }
     } else if (g_str_equal(table, "ntp")) {
         char *cmd = (char *)json_object_get_string(json_object_object_get(j_cfg, "cmd"));
@@ -740,7 +740,28 @@ void dbserver_networkservice_set_connect(char *service, char *password, int *fav
 
     dbus_helpers_method_call(connection,
                              DBSERVER, DBSERVER_PATH,
-                             DBSERVER_NET_INTERFACE, "Update",
+                             DBSERVER_NET_INTERFACE, "Cmd",
+                             NULL, NULL, append_path, json_config);
+    json_object_put(j_cfg);
+}
+
+void dbserver_networkservice_remove(char *service)
+{
+    char *json_config;
+    json_object *j_cfg = json_object_new_object();
+    json_object *key = json_object_new_object();
+    deletehash_networkservice(service);
+    json_object_object_add(key, "sService", json_object_new_string(service));
+
+    json_object_object_add(j_cfg, "table", json_object_new_string(TABLE_NETWORK_SERVICE));
+    json_object_object_add(j_cfg, "key", key);
+    json_object_object_add(j_cfg, "cmd", json_object_new_string("Delete"));
+
+    json_config = (char *)json_object_to_json_string(j_cfg);
+
+    dbus_helpers_method_call(connection,
+                             DBSERVER, DBSERVER_PATH,
+                             DBSERVER_NET_INTERFACE, "Cmd",
                              NULL, NULL, append_path, json_config);
     json_object_put(j_cfg);
 }

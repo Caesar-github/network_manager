@@ -26,6 +26,7 @@ void *database_networkpower_json_get(char *type);
 void *database_networkpower_get(char *type);
 void database_init(void);
 GHashTable *database_hash_network_ip_get(void);
+void dbserver_networkservice_remove(char *service);
 
 #ifdef __cplusplus
 }

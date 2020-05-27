@@ -55,7 +55,7 @@ static DBusMessage *get_config(DBusConnection *conn,
     DBusMessageIter array;
     dbus_bool_t onoff;
     json_object *j_array = json_object_new_array();
-    GList* list = netctl_get_service_list();
+    GList* list = g_list_first(netctl_get_service_list());
 
     sender = dbus_message_get_sender(msg);
 
@@ -162,7 +162,7 @@ static DBusMessage *get_service(DBusConnection *conn,
     DBusMessageIter array;
     dbus_bool_t onoff;
     json_object *j_array = json_object_new_array();
-    GList* list = netctl_get_service_list();
+    GList* list = g_list_first(netctl_get_service_list());
 
     sender = dbus_message_get_sender(msg);
 
