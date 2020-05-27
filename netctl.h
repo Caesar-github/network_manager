@@ -133,5 +133,6 @@ void netctl_run(void);
 void netctl_getdns(char *interface, char **dns1, char **dns2);
 void netctl_service_move_before(char *service, char *target);
 void ConnectService(char *service);
+void netctl_hash_init(void);
 
 #endif

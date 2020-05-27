@@ -499,3 +499,32 @@ int get_dns(char **dns1, char **dns2)
 
     return 0;
 }
+
+int net_detect(char* net_name)
+{
+    int ret = -1;
+    int skfd = 0;
+    struct ifreq ifr;
+
+    skfd = socket(AF_INET, SOCK_DGRAM, 0);
+    if(skfd < 0) {
+        printf("%s:%d Open socket error!\n", __FILE__, __LINE__);
+        return ret;
+    }
+
+    strcpy(ifr.ifr_name, net_name);
+
+    if(ioctl(skfd, SIOCGIFFLAGS, &ifr) <0 ) {
+        printf("Maybe inferface %s is not valid!\n", ifr.ifr_name);
+        close(skfd);
+        return ret;
+    }
+
+    if(ifr.ifr_flags & IFF_UP)
+        ret = 1;
+    else
+        ret = 0;
+    close(skfd);
+
+    return ret;
+}

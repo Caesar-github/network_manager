@@ -35,6 +35,8 @@ int main( int argc , char ** argv)
 
     main_loop = g_main_loop_new(NULL, FALSE);
 
+    database_hash_init();
+    netctl_hash_init();
     pthread_create(&thread_id, NULL, (void*)main_init, NULL);
 
     g_main_loop_run(main_loop);

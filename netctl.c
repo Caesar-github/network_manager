@@ -27,9 +27,12 @@ static DBusConnection *connection = 0;
 static GList* services_list = NULL;
 static pthread_mutex_t service_mutex;
 static pthread_mutex_t technology_mutex;
-static GHashTable *technology_hash;
+static GHashTable *technology_hash = NULL;
 static void (*call)(Massage_Type) = NULL;
 static gint ntptimeouttag = -1;
+static int detect_wifi = 1;
+static int detect_eth = 1;
+static int wifi_err = 0;
 
 struct config_append {
     char **opts;
@@ -232,6 +235,20 @@ static char *get_path(char *full_path)
     return path;
 }
 
+static int TechnolgyGetPower(char *path)
+{
+    int power = -1;
+    struct TechnologyStatus *status;
+
+    pthread_mutex_lock(&technology_mutex);
+    status = g_hash_table_lookup(technology_hash, get_path((char *)path));
+    if (status)
+        power = status->Powered;
+    pthread_mutex_unlock(&technology_mutex);
+
+    return power;
+}
+
 static void TechnologyPropertyChanged(const char *path, DBusMessageIter* iter)
 {
     DBusMessageIter entry;
@@ -252,6 +269,8 @@ static void TechnologyPropertyChanged(const char *path, DBusMessageIter* iter)
         } else if (strcmp(strname, "Powered") == 0) {
             dbus_message_iter_get_basic(&entry, &bval);
             status->Powered = bval;
+            detect_wifi = 1;
+            detect_eth = 1;
         } else if (strcmp(strname, "Tethering") == 0) {
             dbus_message_iter_get_basic(&entry, &bval);
             status->Tethering = bval;
@@ -354,14 +373,8 @@ static void add_technology(DBusMessageIter *iter)
     }
 
     pthread_mutex_unlock(&technology_mutex);
-
-    if (status->Type) {
-        struct NetworkPower *networkpower = database_networkpower_get(status->Type);
-        if (networkpower) {
-            if (status->Powered != networkpower->power)
-                netctl_set_power(status->Type, networkpower->power);
-        }
-    }
+    detect_wifi = 1;
+    detect_eth = 1;
 }
 
 static void free_properties_status(struct PropertiesStatus *status)
@@ -1262,9 +1275,6 @@ static void __connmanctl_monitor_completions(DBusConnection *dbus_conn)
     //peer_hash = g_hash_table_new_full(g_str_hash, g_str_equal,
     //    g_free, NULL);
 
-    technology_hash = g_hash_table_new_full(g_str_hash, g_str_equal,
-                                            g_free, NULL);
-
     pthread_mutex_init(&service_mutex, NULL);
     pthread_mutex_init(&technology_mutex, NULL);
 
@@ -1480,8 +1490,10 @@ static int scan_return(DBusMessageIter *iter, const char *error,
 {
     char *path = user_data;
 
-    if (error)
+    if (error) {
         fprintf(stderr, "Error %s: %s\n", path, error);
+        wifi_err = 1;
+    }
 
     g_free(user_data);
 
@@ -1822,15 +1834,58 @@ void netctl_set_wifi_power(int onoff)
 static void *network_priority_thread(void *arg)
 {
     int cnt = 10;
+
     while (1) {
         struct NetworkPower *networkpower = database_networkpower_get("wifi");
         if (networkpower) {
-            if (networkpower->power) {
-                if (cnt++ > 10) {
-                    cnt = 0;
-                    netctl_wifi_scan();
+            if (detect_wifi) {
+                int wifi_status;
+                int wifi_power;
+
+                sleep(2);
+                wifi_status = net_detect("wlan0");
+                wifi_power = TechnolgyGetPower("wifi");
+                cnt = 0;
+                printf("%s wifi_status = %d, wifi_power = %d, db_power = %d\n", __func__, wifi_status, wifi_power, networkpower->power);
+                if (networkpower->power) {
+                    if (wifi_status == 1 && wifi_power == 1)
+                        detect_wifi = 0;
+                    else if (wifi_status == 0 && wifi_power == 1)
+                        netctl_set_wifi_power(0);
+                    else if (wifi_status == 0 && wifi_power == 0)
+                        netctl_set_wifi_power(1);
+                } else {
+                    if (wifi_status == 0 && wifi_power == 0)
+                        detect_wifi = 0;
+                    else if (wifi_status == 1 && wifi_power == 1)
+                        netctl_set_wifi_power(0);
+                    else if (wifi_status == 1 && wifi_power == 0)
+                        netctl_set_wifi_power(1);
+                }
+            } else {
+                if (networkpower->power) {
+                    if (cnt++ > 10) {
+                        cnt = 0;
+                        netctl_wifi_scan();
+                    }
                 }
             }
+        }
+        if (detect_eth) {
+            detect_eth = 0;
+            networkpower = database_networkpower_get("ethernet");
+            if (networkpower) {
+                int eth_power = TechnolgyGetPower("ethernet");
+                printf("%s eth_power = %d, db_power = %d\n", __func__, eth_power, networkpower->power);
+                if (networkpower->power == 1 && eth_power == 0)
+                    netctl_set_eth_power(1);
+                else if (networkpower->power == 0 && eth_power == 1)
+                    netctl_set_eth_power(0);
+            }
+        }
+        if (wifi_err) {
+            wifi_err = 0;
+            netctl_set_wifi_power(0);
         }
 
         sleep(1);
@@ -1975,4 +2030,10 @@ void netctl_getdns(char *interface, char **dns1, char **dns2)
     }
 
     pthread_mutex_unlock(&service_mutex);
+}
+
+void netctl_hash_init(void)
+{
+    technology_hash = g_hash_table_new_full(g_str_hash, g_str_equal,
+                                            g_free, NULL);
 }

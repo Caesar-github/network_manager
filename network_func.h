@@ -35,5 +35,6 @@ int is_ipv4(char *ip);
 void get_ethernet_speed(char *speed, struct ethtool_cmd *ep);
 void get_ethernet_speedsupport(char *speedsupport, struct ethtool_cmd *ep);
 int get_ethernet_tool_speed_set(char *interface, char *speed);
+int net_detect(char* net_name);
 
 #endif

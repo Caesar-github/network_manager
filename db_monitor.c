@@ -35,9 +35,9 @@ static DBusConnection *connection = 0;
 #define TABLE_NETWORK_POWER         "NetworkPower"
 #define TABLE_NTP    "ntp"
 
-static GHashTable *db_networkpower_hash;
-static GHashTable *db_networkip_hash;
-static GHashTable *db_networkservice_hash;
+static GHashTable *db_networkpower_hash = NULL;
+static GHashTable *db_networkip_hash = NULL;
+static GHashTable *db_networkservice_hash = NULL;
 static struct NtpCfg *ntp = NULL;
 
 struct UserData {
@@ -825,13 +825,6 @@ void database_init(void)
 {
     DBusError err;
 
-    db_networkpower_hash = g_hash_table_new_full(g_str_hash, g_str_equal,
-                                          g_free, NULL);
-    db_networkip_hash = g_hash_table_new_full(g_str_hash, g_str_equal,
-                                          g_free, NULL);
-    db_networkservice_hash = g_hash_table_new_full(g_str_hash, g_str_equal,
-                                              g_free, NULL);
-
     dbus_error_init(&err);
     connection = g_dbus_setup_bus(DBUS_BUS_SYSTEM, NULL, &err);
 
@@ -865,4 +858,14 @@ void database_init(void)
         printf("dbserver_ntp_get, wait dbserver.\n");
         usleep(50000);
     }
+}
+
+void database_hash_init(void)
+{
+    db_networkpower_hash = g_hash_table_new_full(g_str_hash, g_str_equal,
+                                          g_free, NULL);
+    db_networkip_hash = g_hash_table_new_full(g_str_hash, g_str_equal,
+                                          g_free, NULL);
+    db_networkservice_hash = g_hash_table_new_full(g_str_hash, g_str_equal,
+                                              g_free, NULL);
 }
