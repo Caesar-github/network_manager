@@ -1550,10 +1550,12 @@ void netctl_unregistered_call(void)
 void netctl_wifi_scan(void)
 {
     char *path = g_strdup("/net/connman/technology/wifi");
-
-    __connmanctl_dbus_method_call(connection, CONNMAN_SERVICE, path,
-                                  "net.connman.Technology", "Scan",
-                                  scan_return, path, NULL, NULL);
+    int wifi_status = net_detect("wlan0");
+    int wifi_power = TechnolgyGetPower("wifi");
+    if ((wifi_status == 1) && (wifi_power == 1))
+        __connmanctl_dbus_method_call(connection, CONNMAN_SERVICE, path,
+                                      "net.connman.Technology", "Scan",
+                                      scan_return, path, NULL, NULL);
 }
 
 void netctl_free_service_list(void)
@@ -1842,10 +1844,15 @@ static void *network_priority_thread(void *arg)
                 int wifi_status;
                 int wifi_power;
 
+                wifi_status = net_detect("wlan0");
+                wifi_power = TechnolgyGetPower("wifi");
+                if ((networkpower->power == wifi_status) && (wifi_status == wifi_power)) {
+                    detect_wifi = 0;
+                    continue;
+                }
                 sleep(2);
                 wifi_status = net_detect("wlan0");
                 wifi_power = TechnolgyGetPower("wifi");
-                cnt = 0;
                 printf("%s wifi_status = %d, wifi_power = %d, db_power = %d\n", __func__, wifi_status, wifi_power, networkpower->power);
                 if (networkpower->power) {
                     if (wifi_status == 1 && wifi_power == 1)
