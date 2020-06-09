@@ -32,7 +32,6 @@ static void (*call)(Massage_Type) = NULL;
 static gint ntptimeouttag = -1;
 static int detect_wifi = 1;
 static int detect_eth = 1;
-static int wifi_err = 0;
 
 struct config_append {
     char **opts;
@@ -1492,7 +1491,6 @@ static int scan_return(DBusMessageIter *iter, const char *error,
 
     if (error) {
         fprintf(stderr, "Error %s: %s\n", path, error);
-        wifi_err = 1;
     }
 
     g_free(user_data);
@@ -1889,10 +1887,6 @@ static void *network_priority_thread(void *arg)
                 else if (networkpower->power == 0 && eth_power == 1)
                     netctl_set_eth_power(0);
             }
-        }
-        if (wifi_err) {
-            wifi_err = 0;
-            netctl_set_wifi_power(0);
         }
 
         sleep(1);
