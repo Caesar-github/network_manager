@@ -16,12 +16,14 @@
 #include "db_monitor.h"
 #include "manage.h"
 #include "udp_broadcast.h"
+#include "port.h"
 
 static void *main_init(void *arg)
 {
     printf("netserver init\n");
     netctl_init();
     database_init();
+    port_init();
     manage_init();
     netctl_run();
     udp_broadcast_init();

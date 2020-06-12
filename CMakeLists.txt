@@ -42,6 +42,7 @@ target_link_libraries(${PROJECT_NAME}
 	PkgConfig::JSON-C
 	gdbus
 	pthread
+	IPCProtocol
 	)
 
 install(TARGETS ${PROJECT_NAME}
