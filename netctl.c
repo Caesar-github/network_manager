@@ -1866,6 +1866,8 @@ static void *network_priority_thread(void *arg)
                         netctl_set_wifi_power(0);
                     else if (wifi_status == 1 && wifi_power == 0)
                         netctl_set_wifi_power(1);
+                    else if (wifi_status == 0 && wifi_power == 1)
+                        netctl_set_wifi_power(0);
                 }
             } else {
                 if (networkpower->power) {
@@ -1922,7 +1924,7 @@ static void *network_priority_thread(void *arg)
                         }
                     }
                     if (!g_str_equal(status->Error, "")) {
-                        dbserver_networkservice_remove(status->service);
+                        database_networkservice_remove(status->service);
                         netctl_service_config_remove(status);
                     }
                 } else if (g_str_equal(status->Type, "ethernet")) {

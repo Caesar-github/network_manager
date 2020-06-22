@@ -19,14 +19,13 @@ int database_network_config(struct NetworkConfig *config);
 struct NtpCfg *database_ntp_get(void);
 void *database_networkservice_json_get(char *service);
 void *database_networkip_json_get(char *interface);
-void dbserver_netconfig_set_connect(char *service, char *password, int *favorite, int *autoconnect);
 void *database_networkip_get(char *interface);
 void *database_networkservice_get(char *service);
 void *database_networkpower_json_get(char *type);
 void *database_networkpower_get(char *type);
 void database_init(void);
 GHashTable *database_hash_network_ip_get(void);
-void dbserver_networkservice_remove(char *service);
+void database_networkservice_remove(char *service);
 void database_hash_init(void);
 
 #ifdef __cplusplus

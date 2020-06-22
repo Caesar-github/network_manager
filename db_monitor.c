@@ -7,59 +7,19 @@
 #include <unistd.h>
 #include <ctype.h>
 #include <inttypes.h>
-
 #include <glib.h>
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <sqlite3.h>
-
-#include <pthread.h>
-#include <gdbus.h>
-
 #include "json-c/json.h"
-#include "dbus_helpers.h"
 #include "netctl.h"
 #include "db_monitor.h"
 #include "network_func.h"
-
-static DBusConnection *connection = 0;
-
-#define DBSERVER  "rockchip.dbserver"
-#define DBSERVER_PATH      "/"
-
-#define DBSERVER_NET_INTERFACE  DBSERVER ".net"
-
-#define TABLE_NETWORK_IP            "NetworkIP"
-#define TABLE_NETWORK_SERVICE       "NetworkService"
-#define TABLE_NETWORK_POWER         "NetworkPower"
-#define TABLE_NTP    "ntp"
+#include "dbserver.h"
+#include "dbus_signal.h"
 
 static GHashTable *db_networkpower_hash = NULL;
 static GHashTable *db_networkip_hash = NULL;
 static GHashTable *db_networkservice_hash = NULL;
 static struct NtpCfg *ntp = NULL;
-
-struct UserData {
-    pthread_mutex_t mutex;
-    pthread_cond_t cond;
-    int status;
-    int ret;
-};
-
-struct UserData get_ntp_userdata = {PTHREAD_MUTEX_INITIALIZER, PTHREAD_COND_INITIALIZER, 0, 0};
-struct UserData get_service_userdata = {PTHREAD_MUTEX_INITIALIZER, PTHREAD_COND_INITIALIZER, 0, 0};
-struct UserData get_ip_userdata = {PTHREAD_MUTEX_INITIALIZER, PTHREAD_COND_INITIALIZER, 0, 0};
-struct UserData get_power_userdata = {PTHREAD_MUTEX_INITIALIZER, PTHREAD_COND_INITIALIZER, 0, 0};
-
-static void cond_signal(struct UserData *userdata, int ret)
-{
-    userdata->ret = ret;
-    userdata->status = 1;
-    pthread_mutex_lock(&userdata->mutex);
-    pthread_cond_signal(&userdata->cond);
-    pthread_mutex_unlock(&userdata->mutex);
-}
 
 GHashTable *database_hash_network_ip_get(void)
 {
@@ -144,43 +104,69 @@ void *database_networkpower_json_get(char *type)
     return NULL;
 }
 
-static void updatentp(char *name, void *data)
+void database_networkservice_remove(char *service)
 {
-    if (ntp == NULL) {
-        ntp = malloc(sizeof(struct NtpCfg));
-        memset(ntp, 0, sizeof(struct NtpCfg));
-    }
+    char *json_str = dbserver_network_service_delete(service);
 
-    if (g_str_equal(name, "sNtpServers")) {
-        if (ntp->servers)
-            g_free(ntp->servers);
-        ntp->servers = g_strdup(data);
-    } else if (g_str_equal(name, "sTimeZone")) {
-        if (ntp->timezone)
-            g_free(ntp->timezone);
-        ntp->timezone = g_strdup(data);
-    } else if (g_str_equal(name, "sTimeZoneFile")) {
-        if (ntp->timezonefile)
-            g_free(ntp->timezonefile);
-        ntp->timezonefile = g_strdup(data);
-    } else if (g_str_equal(name, "sTimeZoneFileDst")) {
-        if (ntp->timezonefiledst)
-            g_free(ntp->timezonefiledst);
-        ntp->timezonefiledst = g_strdup(data);
-    } else if (g_str_equal(name, "iAutoDst")) {
-        ntp->autodst = *(int *)data;
-    } else if (g_str_equal(name, "iAutoMode")) {
-        ntp->automode = *(int *)data;
-    } else if (g_str_equal(name, "iRefreshTime")) {
-        ntp->time = *(int *)data;
-    }
+    if (json_str)
+        g_free(json_str);
 }
 
-static void append_path(DBusMessageIter *iter, void *user_data)
+int database_network_config(struct NetworkConfig *config)
 {
-    const char *json = user_data;
+    GList *list, *values;
+    list = values = g_hash_table_get_values(db_networkip_hash);
+    while (values) {
+        struct NetworkIP *networkip = (struct NetworkIP *)values->data;
+        if (networkip != NULL) {
+             char *hwaddr = get_local_mac(networkip->interface);
+             if (hwaddr && g_str_equal(hwaddr, config->hwaddr)) {
+                 if (config->method || config->ip || config->mask || config->gate) {
+                     char *json_str = dbserver_network_ipv4_set(networkip->interface, config->method, config->ip, config->mask, config->gate);
+                     if (json_str)
+                         g_free(json_str);
+                 }
 
-    dbus_message_iter_append_basic(iter, DBUS_TYPE_STRING, &json);
+                 if (config->dns1 || config->dns2) {
+                     char *json_str = dbserver_network_dns_set(networkip->interface, config->dns1, config->dns2);
+                     if (json_str)
+                         g_free(json_str);
+                 }
+                 g_list_free(list);
+
+                 return 0;
+             }
+        }
+        values = values->next;
+    }
+    g_list_free(list);
+
+    return -1;
+}
+
+static void updatehash_networkservice(char *service, char *name, void *data)
+{
+    struct NetworkService *networkservice;
+
+    networkservice = g_hash_table_lookup(db_networkservice_hash, service);
+
+    if (networkservice == NULL) {
+        networkservice = malloc(sizeof(struct NetworkService));
+        memset(networkservice, 0, sizeof(struct NetworkService));
+        networkservice->service = g_strdup(service);
+        networkservice->password = g_strdup("");
+        g_hash_table_replace(db_networkservice_hash, g_strdup(service), (gpointer)networkservice);
+    }
+
+    if (g_str_equal(name, "sPassword")) {
+        if (networkservice->password)
+            g_free(networkservice->password);
+        networkservice->password = g_strdup(data);
+    } else if (g_str_equal(name, "iAutoconnect")) {
+        networkservice->AutoConnect = *(int *)data;
+    } else if (g_str_equal(name, "iFavorite")) {
+        networkservice->Favorite = *(int *)data;
+    }
 }
 
 static void updatehash_network_ip(char *interface, char *name, void *data)
@@ -251,6 +237,177 @@ static void updatehash_network_power(char *type, char *name, void *data)
     }
 }
 
+static void updatentp(char *name, void *data)
+{
+    if (ntp == NULL) {
+        ntp = malloc(sizeof(struct NtpCfg));
+        memset(ntp, 0, sizeof(struct NtpCfg));
+    }
+
+    if (g_str_equal(name, "sNtpServers")) {
+        if (ntp->servers)
+            g_free(ntp->servers);
+        ntp->servers = g_strdup(data);
+    } else if (g_str_equal(name, "sTimeZone")) {
+        if (ntp->timezone)
+            g_free(ntp->timezone);
+        ntp->timezone = g_strdup(data);
+    } else if (g_str_equal(name, "sTimeZoneFile")) {
+        if (ntp->timezonefile)
+            g_free(ntp->timezonefile);
+        ntp->timezonefile = g_strdup(data);
+    } else if (g_str_equal(name, "sTimeZoneFileDst")) {
+        if (ntp->timezonefiledst)
+            g_free(ntp->timezonefiledst);
+        ntp->timezonefiledst = g_strdup(data);
+    } else if (g_str_equal(name, "iAutoDst")) {
+        ntp->autodst = *(int *)data;
+    } else if (g_str_equal(name, "iAutoMode")) {
+        ntp->automode = *(int *)data;
+    } else if (g_str_equal(name, "iRefreshTime")) {
+        ntp->time = *(int *)data;
+    }
+}
+
+static int networkservice_get(void)
+{
+    char *json_str = dbserver_network_service_get(NULL);
+
+    if (json_str) {
+        json_object *j_array;
+        json_object *j_ret;
+
+        j_ret = json_tokener_parse(json_str);
+        j_array = json_object_object_get(j_ret, "jData");
+        int len = json_object_array_length(j_array);
+
+        for (int i = 0; i < len; i++) {
+            json_object *j_obj = json_object_array_get_idx(j_array, i);
+            char *service = (char *)json_object_get_string(json_object_object_get(j_obj, "sService"));
+            json_object_object_foreach(j_obj, key, val) {
+                void *data;
+                int tmp;
+                if (json_object_get_type(val) == json_type_int) {
+                    tmp = (int)json_object_get_int(val);
+                    data = (void *)&tmp;
+                } else
+                    data = (void *)json_object_get_string(val);
+                updatehash_networkservice(service, key, data);
+            }
+        }
+        json_object_put(j_ret);
+        g_free(json_str);
+        return 0;
+    }
+
+    return -1;
+}
+
+static int networkip_get(void)
+{
+    char *json_str = dbserver_network_ip_get(NULL);
+
+    if (json_str) {
+        json_object *j_array;
+        json_object *j_ret;
+
+        j_ret = json_tokener_parse(json_str);
+        j_array = json_object_object_get(j_ret, "jData");
+
+        int len = json_object_array_length(j_array);
+
+        for (int i = 0; i < len; i++) {
+            json_object *j_obj = json_object_array_get_idx(j_array, i);
+            char *interface = (char *)json_object_get_string(json_object_object_get(j_obj, "sInterface"));
+
+            json_object_object_foreach(j_obj, key, val) {
+                void *data;
+                int tmp;
+                if (json_object_get_type(val) == json_type_int) {
+                    tmp = (int)json_object_get_int(val);
+                    data = (void *)&tmp;
+                } else
+                    data = (void *)json_object_get_string(val);
+                updatehash_network_ip(interface, key, data);
+            }
+        }
+        json_object_put(j_ret);
+        g_free(json_str);
+        return 0;
+    }
+
+    return -1;
+}
+
+static int networkpower_get(void)
+{
+    char *json_str = dbserver_network_power_get(NULL);
+
+    if (json_str) {
+        json_object *j_array;
+        json_object *j_ret;
+
+        j_ret = json_tokener_parse(json_str);
+        j_array = json_object_object_get(j_ret, "jData");
+
+        int len = json_object_array_length(j_array);
+
+        for (int i = 0; i < len; i++) {
+            json_object *j_obj = json_object_array_get_idx(j_array, i);
+            char *type = (char *)json_object_get_string(json_object_object_get(j_obj, "sType"));
+
+            json_object_object_foreach(j_obj, key, val) {
+                void *data;
+                int tmp;
+                if (json_object_get_type(val) == json_type_int) {
+                    tmp = (int)json_object_get_int(val);
+                    data = (void *)&tmp;
+                } else
+                    data = (void *)json_object_get_string(val);
+                updatehash_network_power(type, key, data);
+            }
+        }
+        json_object_put(j_ret);
+        g_free(json_str);
+        return 0;
+    }
+
+    return -1;
+}
+
+static int ntp_get(void)
+{
+    char *json_str = dbserver_ntp_get();
+
+    if (json_str) {
+        json_object *j_array;
+        json_object *j_ret;
+
+        j_ret = json_tokener_parse(json_str);
+        j_array = json_object_object_get(j_ret, "jData");
+        int len = json_object_array_length(j_array);
+
+        for (int i = 0; i < len; i++) {
+            json_object *j_data = json_object_array_get_idx(j_array, i);
+            json_object_object_foreach(j_data, key, val) {
+                void *data;
+                int tmp;
+                if (json_object_get_type(val) == json_type_int) {
+                    tmp = (int)json_object_get_int(val);
+                    data = (void *)&tmp;
+                } else
+                    data = (void *)json_object_get_string(val);
+                updatentp(key, data);
+            }
+        }
+        json_object_put(j_ret);
+        g_free(json_str);
+        return 0;
+    }
+
+    return -1;
+}
+
 static void deletehash_networkservice(char *service)
 {
     struct NetworkService *networkservice = g_hash_table_lookup(db_networkservice_hash, service);
@@ -264,37 +421,13 @@ static void deletehash_networkservice(char *service)
     }
 }
 
-static void updatehash_networkservice(char *service, char *name, void *data)
-{
-    struct NetworkService *networkservice;
-
-    networkservice = g_hash_table_lookup(db_networkservice_hash, service);
-
-    if (networkservice == NULL) {
-        networkservice = malloc(sizeof(struct NetworkService));
-        memset(networkservice, 0, sizeof(struct NetworkService));
-        networkservice->service = g_strdup(service);
-        networkservice->password = g_strdup("");
-        g_hash_table_replace(db_networkservice_hash, g_strdup(service), (gpointer)networkservice);
-    }
-
-    if (g_str_equal(name, "sPassword")) {
-        if (networkservice->password)
-            g_free(networkservice->password);
-        networkservice->password = g_strdup(data);
-    } else if (g_str_equal(name, "iAutoconnect")) {
-        networkservice->AutoConnect = *(int *)data;
-    } else if (g_str_equal(name, "iFavorite")) {
-        networkservice->Favorite = *(int *)data;
-    }
-}
-
-static void DataChanged(char *json_str)
+void signal_network_datachanged(void *user_data)
 {
     json_object *j_cfg;
     json_object *j_key = 0;
     json_object *j_data = 0;
     char *table = 0;
+    char *json_str = (char *)user_data;
 
     j_cfg = json_tokener_parse(json_str);
 
@@ -380,484 +513,29 @@ static void DataChanged(char *json_str)
     json_object_put(j_cfg);
 }
 
-static int populate_dbserver_get_ntp(DBusMessageIter *iter, const char *error,
-                                            void *user_data)
-{
-    char *json_str;
-    json_object *j_array;
-    json_object *j_ret;
-
-    if (error) {
-        cond_signal(&get_ntp_userdata, -1);
-        return 0;
-    }
-
-    dbus_message_iter_get_basic(iter, &json_str);
-
-    j_ret = json_tokener_parse(json_str);
-    j_array = json_object_object_get(j_ret, "jData");
-    int len = json_object_array_length(j_array);
-
-    for (int i = 0; i < len; i++) {
-        json_object *j_data = json_object_array_get_idx(j_array, i);
-        json_object_object_foreach(j_data, key, val) {
-            void *data;
-            int tmp;
-            if (json_object_get_type(val) == json_type_int) {
-                tmp = (int)json_object_get_int(val);
-                data = (void *)&tmp;
-            } else
-                data = (void *)json_object_get_string(val);
-            updatentp(key, data);
-        }
-    }
-    json_object_put(j_ret);
-    cond_signal(&get_ntp_userdata, 0);
-
-    return 0;
-}
-
-static int populate_dbserver_networkservice_get(DBusMessageIter *iter, const char *error,
-                                            void *user_data)
-{
-    char *json_str;
-    json_object *j_array;
-    json_object *j_ret;
-
-    if (error) {
-        cond_signal(&get_service_userdata, -1);
-        return 0;
-    }
-
-    dbus_message_iter_get_basic(iter, &json_str);
-
-    j_ret = json_tokener_parse(json_str);
-    j_array = json_object_object_get(j_ret, "jData");
-    int len = json_object_array_length(j_array);
-
-    for (int i = 0; i < len; i++) {
-        json_object *j_obj = json_object_array_get_idx(j_array, i);
-        char *service = (char *)json_object_get_string(json_object_object_get(j_obj, "sService"));
-        json_object_object_foreach(j_obj, key, val) {
-            void *data;
-            int tmp;
-            if (json_object_get_type(val) == json_type_int) {
-                tmp = (int)json_object_get_int(val);
-                data = (void *)&tmp;
-            } else
-                data = (void *)json_object_get_string(val);
-            updatehash_networkservice(service, key, data);
-        }
-    }
-    json_object_put(j_ret);
-    cond_signal(&get_service_userdata, 0);
-
-    return 0;
-}
-
-static int populate_dbserver_networkip_get(DBusMessageIter *iter, const char *error,
-                                            void *user_data)
-{
-    char *json_str;
-    json_object *j_array;
-    json_object *j_ret;
-
-    if (error) {
-        cond_signal(&get_ip_userdata, -1);
-        return 0;
-    }
-
-    dbus_message_iter_get_basic(iter, &json_str);
-
-    j_ret = json_tokener_parse(json_str);
-    j_array = json_object_object_get(j_ret, "jData");
-
-    int len = json_object_array_length(j_array);
-
-    for (int i = 0; i < len; i++) {
-        json_object *j_obj = json_object_array_get_idx(j_array, i);
-        char *interface = (char *)json_object_get_string(json_object_object_get(j_obj, "sInterface"));
-
-        json_object_object_foreach(j_obj, key, val) {
-            void *data;
-            int tmp;
-            if (json_object_get_type(val) == json_type_int) {
-                tmp = (int)json_object_get_int(val);
-                data = (void *)&tmp;
-            } else
-                data = (void *)json_object_get_string(val);
-            updatehash_network_ip(interface, key, data);
-        }
-    }
-    json_object_put(j_ret);
-    cond_signal(&get_ip_userdata, 0);
-
-    return 0;
-}
-
-static int populate_dbserver_networkpower_get(DBusMessageIter *iter, const char *error,
-                                            void *user_data)
-{
-    char *json_str;
-    json_object *j_array;
-    json_object *j_ret;
-
-    if (error) {
-        cond_signal(&get_power_userdata, -1);
-        return 0;
-    }
-
-    dbus_message_iter_get_basic(iter, &json_str);
-
-    j_ret = json_tokener_parse(json_str);
-    j_array = json_object_object_get(j_ret, "jData");
-
-    int len = json_object_array_length(j_array);
-
-    for (int i = 0; i < len; i++) {
-        json_object *j_obj = json_object_array_get_idx(j_array, i);
-        char *type = (char *)json_object_get_string(json_object_object_get(j_obj, "sType"));
-
-        json_object_object_foreach(j_obj, key, val) {
-            void *data;
-            int tmp;
-            if (json_object_get_type(val) == json_type_int) {
-                tmp = (int)json_object_get_int(val);
-                data = (void *)&tmp;
-            } else
-                data = (void *)json_object_get_string(val);
-            updatehash_network_power(type, key, data);
-        }
-    }
-    json_object_put(j_ret);
-    cond_signal(&get_power_userdata, 0);
-
-    return 0;
-}
-
-static DBusHandlerResult database_monitor_changed(
-    DBusConnection *connection,
-    DBusMessage *message, void *user_data)
-{
-    bool *enabled = user_data;
-    DBusMessageIter iter;
-    DBusHandlerResult handled;
-
-    handled = DBUS_HANDLER_RESULT_HANDLED;
-    if (dbus_message_is_signal(message, DBSERVER_NET_INTERFACE,
-                               "DataChanged")) {
-        char *json_str;
-
-        dbus_message_iter_init(message, &iter);
-        dbus_message_iter_get_basic(&iter, &json_str);
-        DataChanged(json_str);
-
-        return handled;
-    }
-
-    return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
-}
-
-static int dbserver_networkip_get(void)
-{
-    char *json_str;
-    struct timespec tout;
-
-    pthread_mutex_lock(&get_ip_userdata.mutex);
-    get_ip_userdata.status = 0;
-
-    json_object *j_cfg = json_object_new_object();
-    json_object *key = json_object_new_object();
-
-    json_object_object_add(j_cfg, "table", json_object_new_string(TABLE_NETWORK_IP));
-    json_object_object_add(j_cfg, "key", key);
-    json_object_object_add(j_cfg, "data", json_object_new_string("*"));
-    json_object_object_add(j_cfg, "cmd", json_object_new_string("Select"));
-
-    json_str = (char *)json_object_to_json_string(j_cfg);
-retry:
-    dbus_helpers_method_call(connection,
-                             DBSERVER, DBSERVER_PATH,
-                             DBSERVER_NET_INTERFACE, "Cmd",
-                             populate_dbserver_networkip_get, NULL, append_path, json_str);
-
-    clock_gettime(CLOCK_REALTIME, &tout);
-    tout.tv_sec += 2;
-
-    if (get_ip_userdata.status == 0) {
-        if (pthread_cond_timedwait(&get_ip_userdata.cond, &get_ip_userdata.mutex, &tout) != 0) {
-            printf("%s again get\n", __func__);
-            goto retry;
-        }
-    }
-    pthread_mutex_unlock(&get_ip_userdata.mutex);
-
-    json_object_put(j_cfg);
-
-    return get_ip_userdata.ret;
-}
-
-static int dbserver_networkpower_get(void)
-{
-    char *json_str;
-    struct timespec tout;
-
-    pthread_mutex_lock(&get_power_userdata.mutex);
-    get_power_userdata.status = 0;
-    
-    json_object *j_cfg = json_object_new_object();
-    json_object *key = json_object_new_object();
-
-    json_object_object_add(j_cfg, "table", json_object_new_string(TABLE_NETWORK_POWER));
-    json_object_object_add(j_cfg, "key", key);
-    json_object_object_add(j_cfg, "data", json_object_new_string("*"));
-    json_object_object_add(j_cfg, "cmd", json_object_new_string("Select"));
-
-    json_str = (char *)json_object_to_json_string(j_cfg);
-retry:
-    dbus_helpers_method_call(connection,
-                             DBSERVER, DBSERVER_PATH,
-                             DBSERVER_NET_INTERFACE, "Cmd",
-                             populate_dbserver_networkpower_get, NULL, append_path, json_str);
-
-    clock_gettime(CLOCK_REALTIME, &tout);
-    tout.tv_sec += 2;
-
-    if (get_power_userdata.status == 0) {
-        if (pthread_cond_timedwait(&get_power_userdata.cond, &get_power_userdata.mutex, &tout) != 0) {
-            printf("%s again get\n", __func__);
-            goto retry;
-        }
-    }
-    pthread_mutex_unlock(&get_power_userdata.mutex);
-
-    json_object_put(j_cfg);
-
-    return get_power_userdata.ret;
-}
-
-static int dbserver_ntp_get(void)
-{
-    char *json_str;
-    struct timespec tout;
-
-    pthread_mutex_lock(&get_ntp_userdata.mutex);
-    get_ntp_userdata.status = 0;
-
-    json_object *j_cfg = json_object_new_object();
-    json_object *key = json_object_new_object();
-
-    json_object_object_add(j_cfg, "table", json_object_new_string(TABLE_NTP));
-    json_object_object_add(j_cfg, "key", key);
-    json_object_object_add(j_cfg, "data", json_object_new_string("*"));
-    json_object_object_add(j_cfg, "cmd", json_object_new_string("Select"));
-
-    json_str = (char *)json_object_to_json_string(j_cfg);
-retry:
-    dbus_helpers_method_call(connection,
-                             DBSERVER, DBSERVER_PATH,
-                             DBSERVER_NET_INTERFACE, "Cmd",
-                             populate_dbserver_get_ntp, NULL, append_path, json_str);
-
-    clock_gettime(CLOCK_REALTIME, &tout);
-    tout.tv_sec += 2;
-
-    if (get_ntp_userdata.status == 0) {
-        if (pthread_cond_timedwait(&get_ntp_userdata.cond, &get_ntp_userdata.mutex, &tout) != 0) {
-            printf("%s again get\n", __func__);
-            goto retry;
-        }
-    }
-
-    pthread_mutex_unlock(&get_ntp_userdata.mutex);
-
-    json_object_put(j_cfg);
-
-    return get_ntp_userdata.ret;
-}
-
-static int dbserver_networkservice_get(void)
-{
-    char *json_str;
-    struct timespec tout;
-
-    pthread_mutex_lock(&get_service_userdata.mutex);
-    get_service_userdata.status = 0;
-
-    json_object *j_cfg = json_object_new_object();
-    json_object *key = json_object_new_object();
-
-    json_object_object_add(j_cfg, "table", json_object_new_string(TABLE_NETWORK_SERVICE));
-    json_object_object_add(j_cfg, "key", key);
-    json_object_object_add(j_cfg, "data", json_object_new_string("*"));
-    json_object_object_add(j_cfg, "cmd", json_object_new_string("Select"));
-
-    json_str = (char *)json_object_to_json_string(j_cfg);
-retry:
-    dbus_helpers_method_call(connection,
-                             DBSERVER, DBSERVER_PATH,
-                             DBSERVER_NET_INTERFACE, "Cmd",
-                             populate_dbserver_networkservice_get, NULL, append_path, json_str);
-
-    clock_gettime(CLOCK_REALTIME, &tout);
-    tout.tv_sec += 2;
-
-    if (get_service_userdata.status == 0) {
-        if (pthread_cond_timedwait(&get_service_userdata.cond, &get_service_userdata.mutex, &tout) != 0) {
-            printf("%s again get\n", __func__);
-            goto retry;
-        }
-    }
-
-    pthread_mutex_unlock(&get_service_userdata.mutex);
-
-    json_object_put(j_cfg);
-
-    return get_service_userdata.ret;
-}
-
-void dbserver_networkservice_set_connect(char *service, char *password, int *favorite, int *autoconnect)
-{
-    char *json_config;
-    json_object *j_cfg = json_object_new_object();
-    json_object *key = json_object_new_object();
-    json_object *data = json_object_new_object();
-
-    json_object_object_add(key, "sService", json_object_new_string(service));
-    if (password)
-        json_object_object_add(data, "sPassword", json_object_new_string(password));
-    if (favorite)
-        json_object_object_add(data, "iFavorite", json_object_new_int(*favorite));
-    if (autoconnect)
-        json_object_object_add(data, "iAutoconnect", json_object_new_int(*autoconnect));
-
-    json_object_object_add(j_cfg, "table", json_object_new_string(TABLE_NETWORK_SERVICE));
-    json_object_object_add(j_cfg, "key", key);
-    json_object_object_add(j_cfg, "data", data);
-    json_object_object_add(j_cfg, "cmd", json_object_new_string("Update"));
-
-    json_config = (char *)json_object_to_json_string(j_cfg);
-
-    dbus_helpers_method_call(connection,
-                             DBSERVER, DBSERVER_PATH,
-                             DBSERVER_NET_INTERFACE, "Cmd",
-                             NULL, NULL, append_path, json_config);
-    json_object_put(j_cfg);
-}
-
-void dbserver_networkservice_remove(char *service)
-{
-    char *json_config;
-    json_object *j_cfg = json_object_new_object();
-    json_object *key = json_object_new_object();
-    deletehash_networkservice(service);
-    json_object_object_add(key, "sService", json_object_new_string(service));
-
-    json_object_object_add(j_cfg, "table", json_object_new_string(TABLE_NETWORK_SERVICE));
-    json_object_object_add(j_cfg, "key", key);
-    json_object_object_add(j_cfg, "cmd", json_object_new_string("Delete"));
-
-    json_config = (char *)json_object_to_json_string(j_cfg);
-
-    dbus_helpers_method_call(connection,
-                             DBSERVER, DBSERVER_PATH,
-                             DBSERVER_NET_INTERFACE, "Cmd",
-                             NULL, NULL, append_path, json_config);
-    json_object_put(j_cfg);
-}
-
-int database_network_config(struct NetworkConfig *config)
-{
-    //printf("%s,hwaddr = %s, method = %s, ip = %s, mask = %s, gate = %s, dns1 = %s, dns2 = %s\n", __func__, config->hwaddr, config->method, config->ip, config->mask, config->gate, config->dns1, config->dns2);
-    GList *list, *values;
-    list = values = g_hash_table_get_values(db_networkip_hash);
-    while (values) {
-        struct NetworkIP *networkip = (struct NetworkIP *)values->data;
-        if (networkip != NULL) {
-             char *hwaddr = get_local_mac(networkip->interface);
-             if (hwaddr && g_str_equal(hwaddr, config->hwaddr)) {
-                 char *json_str;
-
-                 json_object *j_cfg = json_object_new_object();
-                 json_object *key = json_object_new_object();
-                 json_object *data = json_object_new_object();
-
-                 json_object_object_add(key, "sInterface", json_object_new_string(networkip->interface));
-                 if (config->method)
-                     json_object_object_add(data, "sV4Method", json_object_new_string(config->method));
-                 if (config->ip)
-                     json_object_object_add(data, "sV4Address", json_object_new_string(config->ip));
-                 if (config->mask)
-                     json_object_object_add(data, "sV4Netmask", json_object_new_string(config->mask));
-                 if (config->gate)
-                     json_object_object_add(data, "sV4Gateway", json_object_new_string(config->gate));
-                 if (config->dns1)
-                     json_object_object_add(data, "sDNS1", json_object_new_string(config->dns1));
-                 if (config->dns2)
-                     json_object_object_add(data, "sDNS2", json_object_new_string(config->dns2));
-
-                 json_object_object_add(j_cfg, "table", json_object_new_string(TABLE_NETWORK_IP));
-                 json_object_object_add(j_cfg, "key", key);
-                 json_object_object_add(j_cfg, "data", data);
-                 json_object_object_add(j_cfg, "cmd", json_object_new_string("Update"));
-
-                 json_str = (char *)json_object_to_json_string(j_cfg);
-
-                 dbus_helpers_method_call(connection,
-                                          DBSERVER, DBSERVER_PATH,
-                                          DBSERVER_NET_INTERFACE, "Cmd",
-                                          NULL, NULL, append_path, json_str);
-
-                 json_object_put(j_cfg);
-                 g_list_free(list);
-
-                 return 0;
-             }
-        }
-        values = values->next;
-    }
-    g_list_free(list);
-
-    return -1;
-}
-
 void database_init(void)
 {
-    DBusError err;
-
-    dbus_error_init(&err);
-    connection = g_dbus_setup_bus(DBUS_BUS_SYSTEM, NULL, &err);
-
-    dbus_connection_add_filter(connection,
-                               database_monitor_changed, NULL, NULL);
-
-    dbus_bus_add_match(connection,
-                       "type='signal',interface='rockchip.dbserver.net'", &err);
-
-    if (dbus_error_is_set(&err)) {
-        fprintf(stderr, "Error: %s\n", err.message);
-        return;
-    }
-
-    while (dbserver_networkservice_get() != 0) {
+    disable_loop();
+    while (networkservice_get() != 0) {
         printf("dbserver_networkservice_get, wait dbserver.\n");
         usleep(50000);
     }
 
-    while (dbserver_networkip_get() != 0) {
+    while (networkip_get() != 0) {
         printf("dbserver_networkip_get, wait dbserver.\n");
         usleep(50000);
     }
 
-    while (dbserver_networkpower_get() != 0) {
+    while (networkpower_get() != 0) {
         printf("dbserver_networkpower_get, wait dbserver.\n");
         usleep(50000);
     }
 
-    while (dbserver_ntp_get() != 0) {
+    while (ntp_get() != 0) {
         printf("dbserver_ntp_get, wait dbserver.\n");
         usleep(50000);
     }
+    dbus_monitor_signal_registered(DBSERVER_NET_INTERFACE, DS_SIGNAL_DATACHANGED, &signal_network_datachanged);
 }
 
 void database_hash_init(void)
