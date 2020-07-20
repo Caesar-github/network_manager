@@ -35,6 +35,13 @@ if(SANITIZER_DYNAMIC)
 	target_link_libraries(${PROJECT_NAME} asan)
 endif()
 
+option(ENABLE_MINILOGGER  "enbale minilogger" ON)
+if(ENABLE_MINILOGGER)
+    find_package(MiniLogger REQUIRED)
+    add_definitions(-DENABLE_MINILOGGER)
+    target_link_libraries(${PROJECT_NAME} MiniLogger::MiniLogger)
+endif()
+
 target_link_libraries(${PROJECT_NAME}
 	PkgConfig::GLIB
 	PkgConfig::DBUS

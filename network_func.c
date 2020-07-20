@@ -22,6 +22,12 @@
 
 #include "json-c/json.h"
 #include "network_func.h"
+#include "log.h"
+
+#ifdef LOG_TAG
+#undef LOG_TAG
+#endif
+#define LOG_TAG "network_func.c"
 
 #define SIOCETHTOOL     0x8946
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
@@ -86,7 +92,7 @@
 #define DUPLEX_FULL          0x01
 
 /* Which connector port. */
-#define PORT_TP               0x00 //À´Ω œﬂ
+#define PORT_TP               0x00 // ÂèåÁªûÁ∫ø
 #define PORT_AUI          0x01
 #define PORT_MII          0x02
 #define PORT_FIBRE          0x03
@@ -167,7 +173,7 @@ int get_ethernet_tool_speed_set(char *interface, char *speed)
     int needupdate = 0;
 
     if (interface == NULL) {
-        printf("interface emtpy...\n");
+        LOG_INFO("interface emtpy...\n");
         return -2;
     }
 
@@ -310,14 +316,14 @@ char *get_local_mac(char *interface)
 
     bzero(&ifr, sizeof(struct ifreq));
     if ( (sd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-        printf("get %s mac address socket creat error\n", interface);
+        LOG_INFO("get %s mac address socket creat error\n", interface);
         return mac;
     }
 
     strncpy(ifr.ifr_name, interface, sizeof(ifr.ifr_name) - 1);
 
     if (ioctl(sd, SIOCGIFHWADDR, &ifr) < 0) {
-        //printf("get %s mac address error\n", interface);
+        //LOG_INFO("get %s mac address error\n", interface);
         close(sd);
         return mac;
     }
@@ -344,7 +350,7 @@ char *get_local_ip(char *interface)
 
     sd = socket(AF_INET, SOCK_DGRAM, 0);
     if (-1 == sd) {
-        printf("socket error: %s\n", strerror(errno));
+        LOG_INFO("socket error: %s\n", strerror(errno));
         return ip;
     }
 
@@ -352,7 +358,7 @@ char *get_local_ip(char *interface)
     ifr.ifr_name[IFNAMSIZ - 1] = 0;
 
     if (ioctl(sd, SIOCGIFADDR, &ifr) < 0) {
-        printf("ioctl error: %s\n", strerror(errno));
+        LOG_INFO("ioctl error: %s\n", strerror(errno));
         close(sd);
         return ip;
     }
@@ -374,7 +380,7 @@ char *get_local_netmask(char *interface)
 
     sd = socket(AF_INET, SOCK_DGRAM, 0);
     if (-1 == sd) {
-        printf("socket error: %s\n", strerror(errno));
+        LOG_INFO("socket error: %s\n", strerror(errno));
         return ip;
     }
 
@@ -382,7 +388,7 @@ char *get_local_netmask(char *interface)
     ifr.ifr_name[IFNAMSIZ - 1] = 0;
 
     if (ioctl(sd, SIOCGIFNETMASK, &ifr) < 0) {
-        printf("ioctl error: %s\n", strerror(errno));
+        LOG_INFO("ioctl error: %s\n", strerror(errno));
         close(sd);
         return ip;
     }
@@ -508,14 +514,14 @@ int net_detect(char* net_name)
 
     skfd = socket(AF_INET, SOCK_DGRAM, 0);
     if(skfd < 0) {
-        printf("%s:%d Open socket error!\n", __FILE__, __LINE__);
+        LOG_INFO("%s:%d Open socket error!\n", __FILE__, __LINE__);
         return ret;
     }
 
     strcpy(ifr.ifr_name, net_name);
 
     if(ioctl(skfd, SIOCGIFFLAGS, &ifr) <0 ) {
-        printf("Maybe inferface %s is not valid!\n", ifr.ifr_name);
+        LOG_INFO("Maybe inferface %s is not valid!\n", ifr.ifr_name);
         close(skfd);
         return ret;
     }

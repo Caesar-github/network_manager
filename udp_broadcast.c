@@ -12,6 +12,12 @@
 #include "json-c/json.h"
 #include "manage.h"
 #include "db_monitor.h"
+#include "log.h"
+
+#ifdef LOG_TAG
+#undef LOG_TAG
+#endif
+#define LOG_TAG "udp_broadcast.c"
 
 #define SEEK_DEVICE          "SeekDevice"
 #define NETWORK_CONFIG       "NetworkConfig"
@@ -33,15 +39,15 @@ int udp_broadcast_tx(char *msg)
  
     sock = socket(AF_INET, SOCK_DGRAM, 0);
     if (sock == -1)
-        printf("Ceate sock fail\n");
+        LOG_INFO("Ceate sock fail\n");
  
     ret = setsockopt(sock, SOL_SOCKET, SO_BROADCAST, (char *)&opt, sizeof(opt));
     if (ret == -1)
-        printf("Set sock to broadcast format fail\n");
+        LOG_INFO("Set sock to broadcast format fail\n");
  
     sendto(sock, msg, strlen(msg), 0,
             (struct sockaddr *)&peer_addr, peer_addrlen);
-    //printf("Done\n");
+    //LOG_INFO("Done\n");
 }
 
 static void *udp_broadcast_rx_thread(void *arg)
@@ -62,11 +68,11 @@ static void *udp_broadcast_rx_thread(void *arg)
 
     sock = socket(AF_INET, SOCK_DGRAM, 0);
     if (sock == -1)
-        printf("Ceate sock fail\n");
+        LOG_INFO("Ceate sock fail\n");
 
     ret = bind(sock, (struct sockaddr *)&own_addr, sizeof(struct sockaddr_in));
     if (ret == -1)
-        printf("Bind addr fail\n");
+        LOG_INFO("Bind addr fail\n");
  
     while (1) {
         ret = recvfrom(sock, recv_msg, sizeof(recv_msg), 0,
@@ -74,11 +80,11 @@ static void *udp_broadcast_rx_thread(void *arg)
         if (ret > 0) {
             inet_ntop(AF_INET, &peer_addr.sin_addr.s_addr,
                     peer_name, sizeof(peer_name));
-            //printf("Recv from %s, msg[%s]\n", peer_name, recv_msg);
+            //LOG_INFO("Recv from %s, msg[%s]\n", peer_name, recv_msg);
             json_object *j_cfg = json_tokener_parse(recv_msg);
             if (j_cfg) {
                 char *sender = (char *)json_object_get_string(json_object_object_get(j_cfg, "Sender"));
-                //printf("%s,sender = %s\n", __func__, sender);
+                //LOG_INFO("%s,sender = %s\n", __func__, sender);
                 if (!strcmp("server", sender)) {
                     char *cmd = (char *)json_object_get_string(json_object_object_get(j_cfg, "Cmd"));
                     if (g_str_equal(cmd, SEEK_DEVICE)) {
@@ -112,7 +118,7 @@ static void *udp_broadcast_rx_thread(void *arg)
                 json_object_put(j_cfg);
             }
         } else
-            printf("Recv msg err\n");
+            LOG_INFO("Recv msg err\n");
 
         bzero(recv_msg, sizeof(recv_msg));
     }

@@ -15,6 +15,12 @@
 #include "network_func.h"
 #include "dbserver.h"
 #include "dbus_signal.h"
+#include "log.h"
+
+#ifdef LOG_TAG
+#undef LOG_TAG
+#endif
+#define LOG_TAG "db_monitor.c"
 
 static GHashTable *db_networkpower_hash = NULL;
 static GHashTable *db_networkip_hash = NULL;
@@ -517,22 +523,22 @@ void database_init(void)
 {
     disable_loop();
     while (networkservice_get() != 0) {
-        printf("dbserver_networkservice_get, wait dbserver.\n");
+        LOG_INFO("dbserver_networkservice_get, wait dbserver.\n");
         usleep(50000);
     }
 
     while (networkip_get() != 0) {
-        printf("dbserver_networkip_get, wait dbserver.\n");
+        LOG_INFO("dbserver_networkip_get, wait dbserver.\n");
         usleep(50000);
     }
 
     while (networkpower_get() != 0) {
-        printf("dbserver_networkpower_get, wait dbserver.\n");
+        LOG_INFO("dbserver_networkpower_get, wait dbserver.\n");
         usleep(50000);
     }
 
     while (ntp_get() != 0) {
-        printf("dbserver_ntp_get, wait dbserver.\n");
+        LOG_INFO("dbserver_ntp_get, wait dbserver.\n");
         usleep(50000);
     }
     dbus_monitor_signal_registered(DBSERVER_NET_INTERFACE, DS_SIGNAL_DATACHANGED, &signal_network_datachanged);

@@ -22,6 +22,12 @@
 #include "netctl.h"
 #include "db_monitor.h"
 #include "network_func.h"
+#include "log.h"
+
+#ifdef LOG_TAG
+#undef LOG_TAG
+#endif
+#define LOG_TAG "manage.c"
 
 #define MSG_CMD_ADD_TECH   1
 
@@ -388,7 +394,7 @@ static DBusMessage *get_networkip(DBusConnection *conn,
 
     json_object *j_array = (json_object *)get_networkip_json_array(interface);
     str = json_object_to_json_string(j_array);
-printf("%s, %s\n", __func__, str);
+LOG_INFO("%s, %s\n", __func__, str);
     reply = dbus_message_new_method_return(msg);
     if (!reply)
         return NULL;
@@ -461,7 +467,7 @@ void manage_init(void)
     dbus_conn = g_dbus_setup_bus(DBUS_BUS_SYSTEM, NETSERVER, &dbus_err);
     connection = dbus_conn;
     if (!connection) {
-        printf("%s connect %s fail\n", __func__, NETSERVER);
+        LOG_INFO("%s connect %s fail\n", __func__, NETSERVER);
         return;
     }
     dbus_manager_init();

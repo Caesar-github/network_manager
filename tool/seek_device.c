@@ -29,11 +29,11 @@ int udp_broadcast_tx(char *msg)
  
     sock = socket(AF_INET, SOCK_DGRAM, 0);
     if (sock == -1)
-        printf("Ceate sock fail\n");
+        LOG_INFO("Ceate sock fail\n");
  
     ret = setsockopt(sock, SOL_SOCKET, SO_BROADCAST, (char *)&opt, sizeof(opt));
     if (ret == -1)
-        printf("Set sock to broadcast format fail\n");
+        LOG_INFO("Set sock to broadcast format fail\n");
  
     sendto(sock, msg, strlen(msg), 0,
             (struct sockaddr *)&peer_addr, peer_addrlen);
@@ -52,21 +52,21 @@ static void device_info_printf(char *info)
             json_object *j_dbconfig = json_object_object_get(j_cfg, "dbconfig");
             char *method = (char *)json_object_get_string(json_object_object_get(j_dbconfig, "sV4Method"));
 
-            printf("  Interface:%s\n", (char *)json_object_get_string(json_object_object_get(j_link, "sInterface")));
-            printf("    HWaddr:%s\n", (char *)json_object_get_string(json_object_object_get(j_link, "sAddress")));
-            printf("    Method:%s\n", method);
+            LOG_INFO("  Interface:%s\n", (char *)json_object_get_string(json_object_object_get(j_link, "sInterface")));
+            LOG_INFO("    HWaddr:%s\n", (char *)json_object_get_string(json_object_object_get(j_link, "sAddress")));
+            LOG_INFO("    Method:%s\n", method);
             if (!strcmp(method, "dhcp")) {
-                printf("    inet addr:%s\n", (char *)json_object_get_string(json_object_object_get(j_ipv4, "sV4Address")));
-                printf("    Mask:%s\n", (char *)json_object_get_string(json_object_object_get(j_ipv4, "sV4Netmask")));
-                printf("    Gateway:%s\n", (char *)json_object_get_string(json_object_object_get(j_ipv4, "sV4Gateway")));
-                printf("    DNS1:%s\n", (char *)json_object_get_string(json_object_object_get(j_link, "sDNS1")));
-                printf("    DNS2:%s\n", (char *)json_object_get_string(json_object_object_get(j_link, "sDNS2")));
+                LOG_INFO("    inet addr:%s\n", (char *)json_object_get_string(json_object_object_get(j_ipv4, "sV4Address")));
+                LOG_INFO("    Mask:%s\n", (char *)json_object_get_string(json_object_object_get(j_ipv4, "sV4Netmask")));
+                LOG_INFO("    Gateway:%s\n", (char *)json_object_get_string(json_object_object_get(j_ipv4, "sV4Gateway")));
+                LOG_INFO("    DNS1:%s\n", (char *)json_object_get_string(json_object_object_get(j_link, "sDNS1")));
+                LOG_INFO("    DNS2:%s\n", (char *)json_object_get_string(json_object_object_get(j_link, "sDNS2")));
             } else {
-                printf("    inet addr:%s\n", (char *)json_object_get_string(json_object_object_get(j_dbconfig, "sV4Address")));
-                printf("    Mask:%s\n", (char *)json_object_get_string(json_object_object_get(j_dbconfig, "sV4Netmask")));
-                printf("    Gateway:%s\n", (char *)json_object_get_string(json_object_object_get(j_dbconfig, "sV4Gateway")));
-                printf("    DNS1:%s\n", (char *)json_object_get_string(json_object_object_get(j_dbconfig, "sDNS1")));
-                printf("    DNS2:%s\n", (char *)json_object_get_string(json_object_object_get(j_dbconfig, "sDNS2")));
+                LOG_INFO("    inet addr:%s\n", (char *)json_object_get_string(json_object_object_get(j_dbconfig, "sV4Address")));
+                LOG_INFO("    Mask:%s\n", (char *)json_object_get_string(json_object_object_get(j_dbconfig, "sV4Netmask")));
+                LOG_INFO("    Gateway:%s\n", (char *)json_object_get_string(json_object_object_get(j_dbconfig, "sV4Gateway")));
+                LOG_INFO("    DNS1:%s\n", (char *)json_object_get_string(json_object_object_get(j_dbconfig, "sDNS1")));
+                LOG_INFO("    DNS2:%s\n", (char *)json_object_get_string(json_object_object_get(j_dbconfig, "sDNS2")));
             }
         }
         json_object_put(j_array);
@@ -91,11 +91,11 @@ static void *udp_broadcast_rx_thread(void *arg)
 
     sock = socket(AF_INET, SOCK_DGRAM, 0);
     if (sock == -1)
-        printf("Ceate sock fail\n");
+        LOG_INFO("Ceate sock fail\n");
 
     ret = bind(sock, (struct sockaddr *)&own_addr, sizeof(struct sockaddr_in));
     if (ret == -1)
-        printf("Bind addr fail\n");
+        LOG_INFO("Bind addr fail\n");
 
     while (1) {
         ret = recvfrom(sock, recv_msg, sizeof(recv_msg), 0,
@@ -103,29 +103,29 @@ static void *udp_broadcast_rx_thread(void *arg)
         if (ret > 0) {
             inet_ntop(AF_INET, &peer_addr.sin_addr.s_addr,
                     peer_name, sizeof(peer_name));
-            //printf("Recv from %s, msg[%s]\n", peer_name, recv_msg);
+            //LOG_INFO("Recv from %s, msg[%s]\n", peer_name, recv_msg);
             json_object *j_cfg = json_tokener_parse(recv_msg);
             if (j_cfg) {
                 char *sender = (char *)json_object_get_string(json_object_object_get(j_cfg, "Sender"));
-                //printf("%s,sender = %s\n", __func__, sender);
+                //LOG_INFO("%s,sender = %s\n", __func__, sender);
                 if (!strcmp("client", sender)) {
                     char *cmd = (char *)json_object_get_string(json_object_object_get(j_cfg, "Cmd"));
                     if (!strcmp(cmd, SEEK_DEVICE)) {
-                        printf("\n************************\n");
-                        printf("device: %s\n", peer_name);
+                        LOG_INFO("\n************************\n");
+                        LOG_INFO("device: %s\n", peer_name);
                         device_info_printf((char *)json_object_get_string(json_object_object_get(j_cfg, "Data")));
-                        printf("************************\n");
+                        LOG_INFO("************************\n");
                     } else if (!strcmp(cmd, NETWORK_CONFIG)) {
-                        printf("\n************************\n");
+                        LOG_INFO("\n************************\n");
                         char *ret = (char *)json_object_get_string(json_object_object_get(j_cfg, "Data"));
-                        printf("device: %s, %s,%s\n", peer_name, NETWORK_CONFIG, ret);
-                        printf("************************\n");
+                        LOG_INFO("device: %s, %s,%s\n", peer_name, NETWORK_CONFIG, ret);
+                        LOG_INFO("************************\n");
                     }
                 }
                 json_object_put(j_cfg);
             }
         } else
-            printf("Recv msg err\n");
+            LOG_INFO("Recv msg err\n");
 
         bzero(recv_msg, sizeof(recv_msg));
     }
@@ -142,11 +142,11 @@ void udp_broadcast_init(void)
 
 void help_printf(void)
 {
-    printf("************************\n");
-    printf("0.help\n");
-    printf("1.seek device\n");
-    printf("2.config device\n");
-    printf("************************\n");
+    LOG_INFO("************************\n");
+    LOG_INFO("0.help\n");
+    LOG_INFO("1.seek device\n");
+    LOG_INFO("2.config device\n");
+    LOG_INFO("************************\n");
 }
 
 void seek_device(void)
@@ -222,19 +222,19 @@ void config_device(void)
     char gate[32] = {0};
     char dns1[32] = {0};
     char dns2[32] = {0};
-    printf("please enter HWaddr:");
+    LOG_INFO("please enter HWaddr:");
     scanf("%s", hwaddr);
-    printf("please enter Method(dhcp/manual):");
+    LOG_INFO("please enter Method(dhcp/manual):");
     scanf("%s", method);
-    printf("please enter inet addr:");
+    LOG_INFO("please enter inet addr:");
     scanf("%s", ip);
-    printf("please enter Mask:");
+    LOG_INFO("please enter Mask:");
     scanf("%s", mask);
-    printf("please enter Gateway:");
+    LOG_INFO("please enter Gateway:");
     scanf("%s", gate);
-    printf("please enter DNS1:");
+    LOG_INFO("please enter DNS1:");
     scanf("%s", dns1);
-    printf("please enter DNS2:");
+    LOG_INFO("please enter DNS2:");
     scanf("%s", dns2);
 
     if (is_ipv4(ip) != 0)
@@ -252,40 +252,40 @@ void config_device(void)
     if (is_ipv4(dns2) != 0)
         dns2[0] = 0;
 
-    printf("  HWaddr:%s\n", hwaddr);
-    printf("  Method:%s\n", method);
-    printf("  inet addr:%s\n", ip);
-    printf("  Mask:%s\n", mask);
-    printf("  Gateway:%s\n", gate);
-    printf("  DNS1:%s\n", dns1);
-    printf("  DNS2:%s\n", dns2);
+    LOG_INFO("  HWaddr:%s\n", hwaddr);
+    LOG_INFO("  Method:%s\n", method);
+    LOG_INFO("  inet addr:%s\n", ip);
+    LOG_INFO("  Mask:%s\n", mask);
+    LOG_INFO("  Gateway:%s\n", gate);
+    LOG_INFO("  DNS1:%s\n", dns1);
+    LOG_INFO("  DNS2:%s\n", dns2);
     
     if (is_hwaddr(hwaddr) != 0) {
-        printf("HWaddr is err,\n");
+        LOG_INFO("HWaddr is err,\n");
         return;
     }
 
     if (strcmp(method, "dhcp") && strcmp(method, "manual")) {
-        printf("Method is err,\n");
+        LOG_INFO("Method is err,\n");
         return;
     }
 
     if (!strcmp(method, "manual")) {
         if (ip[0] == 0) {
-            printf("inet addr is err,\n");
+            LOG_INFO("inet addr is err,\n");
             return;
         }
         if (mask[0] == 0) {
-            printf("Mask is err,\n");
+            LOG_INFO("Mask is err,\n");
             return;
         }
         if (gate[0] == 0) {
-            printf("Gateway is err,\n");
+            LOG_INFO("Gateway is err,\n");
             return;
         }
     }
 
-    printf("Are you sure you want to configure?(y/n):");
+    LOG_INFO("Are you sure you want to configure?(y/n):");
     char yn;
     scanf("%c", &yn);
     if (yn == 0xa)
@@ -308,7 +308,7 @@ void config_device(void)
         udp_broadcast_tx((char *)json_object_to_json_string(j_rx));
         json_object_put(j_rx);
     } else {
-        printf("don't config\n");
+        LOG_INFO("don't config\n");
     }
 }
 
@@ -319,7 +319,7 @@ int main(void)
     help_printf();
     while (1) {
         char cmd = 0;
-        printf("please enter:");
+        LOG_INFO("please enter:");
 again:
         scanf("%c", &cmd);
         switch(cmd) {

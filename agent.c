@@ -36,6 +36,12 @@
 
 #include "dbus_helpers.h"
 #include "agent.h"
+#include "log.h"
+
+#ifdef LOG_TAG
+#undef LOG_TAG
+#endif
+#define LOG_TAG "agent.c"
 
 #define AGENT_INTERFACE      "net.connman.Agent"
 #define VPN_AGENT_INTERFACE  "net.connman.vpn.Agent"
@@ -118,7 +124,7 @@ static struct agent_input_data vpnagent_input_handler[] = {
 void set_passphrase(char *input)
 {
     int i;
-    printf("%s,%s\n", __func__, input);
+    LOG_INFO("%s,%s\n", __func__, input);
 
     if (agent_input_handler[PASSPHRASE].input)
         g_free(agent_input_handler[PASSPHRASE].input);
@@ -191,10 +197,10 @@ static void pending_command_complete(char *message)
     struct agent_data *next_request = NULL;
     DBusMessage *pending_message;
     GDBusMethodFunction pending_function;
-    printf("%s\n", __func__);
+    LOG_INFO("%s\n", __func__);
     //__connmanctl_save_rl();
 
-    fprintf(stdout, "%s", message);
+    LOG_INFO("%s", message);
 
     //__connmanctl_redraw_rl();
 
@@ -238,7 +244,7 @@ static DBusMessage *agent_release(DBusConnection *connection,
                                   DBusMessage *message, void *user_data)
 {
     struct agent_data *request = user_data;
-    printf("%s\n", __func__);
+    LOG_INFO("%s\n", __func__);
     if (handle_message(message, request, agent_release) == false)
         return NULL;
 
@@ -307,7 +313,7 @@ static DBusMessage *agent_request_browser(DBusConnection *connection,
     struct agent_data *request = user_data;
     DBusMessageIter iter;
     char *service, *url;
-    printf("%s\n", __func__);
+    LOG_INFO("%s\n", __func__);
     if (handle_message(message, request, agent_request_browser) == false)
         return NULL;
 
@@ -318,8 +324,8 @@ static DBusMessage *agent_request_browser(DBusConnection *connection,
     dbus_message_iter_get_basic(&iter, &url);
 
     //__connmanctl_save_rl();
-    fprintf(stdout, "Agent RequestBrowser %s\n", strip_path(service));
-    fprintf(stdout, "  %s\n", url);
+    LOG_INFO("Agent RequestBrowser %s\n", strip_path(service));
+    LOG_INFO("  %s\n", url);
     //__connmanctl_redraw_rl();
 
     request->message = dbus_message_ref(message);
@@ -362,7 +368,7 @@ static DBusMessage *agent_report_error(DBusConnection *connection,
     struct agent_data *request = user_data;
     DBusMessageIter iter;
     char *path, *service, *error;
-    printf("%s\n", __func__);
+    LOG_INFO("%s\n", __func__);
     if (handle_message(message, request, agent_report_error) == false)
         return NULL;
 
@@ -376,10 +382,10 @@ static DBusMessage *agent_report_error(DBusConnection *connection,
 
     //__connmanctl_save_rl();
     if (strcmp(request->interface, AGENT_INTERFACE) == 0)
-        fprintf(stdout, "Agent ReportError %s\n", service);
+        LOG_INFO("Agent ReportError %s\n", service);
     else
-        fprintf(stdout, "VPN Agent ReportError %s\n", service);
-    fprintf(stdout, "  %s\n", error);
+        LOG_INFO("VPN Agent ReportError %s\n", service);
+    LOG_INFO("  %s\n", error);
     //__connmanctl_redraw_rl();
 
     request->message = dbus_message_ref(message);
@@ -396,7 +402,7 @@ static DBusMessage *agent_report_peer_error(DBusConnection *connection,
     struct agent_data *request = user_data;
     char *path, *peer, *error;
     DBusMessageIter iter;
-    printf("%s\n", __func__);
+    LOG_INFO("%s\n", __func__);
     if (handle_message(message, request,
                        agent_report_peer_error) == false)
         return NULL;
@@ -410,8 +416,8 @@ static DBusMessage *agent_report_peer_error(DBusConnection *connection,
     dbus_message_iter_get_basic(&iter, &error);
 
     //__connmanctl_save_rl();
-    fprintf(stdout, "Agent ReportPeerError %s\n", peer);
-    fprintf(stdout, "  %s\n", error);
+    LOG_INFO("Agent ReportPeerError %s\n", peer);
+    LOG_INFO("  %s\n", error);
     //__connmanctl_redraw_rl();
 
     request->message = dbus_message_ref(message);
@@ -424,7 +430,7 @@ static DBusMessage *agent_report_peer_error(DBusConnection *connection,
 static void request_input_next(struct agent_data *request)
 {
     int i;
-    printf("%s\n", __func__);
+    LOG_INFO("%s\n", __func__);
 
     for (i = 0; request->input[i].attribute; i++) {
         if (request->input[i].requested == true) {
@@ -468,7 +474,7 @@ static void request_input_ssid_return(char *input,
 {
     struct agent_data *request = user_data;
     int len = 0;
-    printf("%s\n", __func__);
+    LOG_INFO("%s\n", __func__);
     if (input)
         len = strlen(input);
 
@@ -487,7 +493,7 @@ static void request_input_passphrase_return(char *input, void *user_data)
     int len = 0;
 
     /* TBD passphrase length checking */
-    printf("%s input = %s\n", __func__, input);
+    LOG_INFO("%s input = %s\n", __func__, input);
     if (input)
         len = strlen(input);
 
@@ -510,7 +516,7 @@ static void request_input_string_return(char *input, void *user_data)
 {
     struct agent_data *request = user_data;
     int i;
-    printf("%s\n", __func__);
+    LOG_INFO("%s\n", __func__);
     for (i = 0; request->input[i].attribute; i++) {
         if (request->input[i].requested == true) {
             request_input_append(request,
@@ -531,7 +537,7 @@ static void parse_agent_request(struct agent_data *request,
     char *field, *argument, *value;
     char *attr_type = NULL;
     int i;
-    printf("%s\n", __func__);
+    LOG_INFO("%s\n", __func__);
     dbus_message_iter_recurse(iter, &dict);
 
     while (dbus_message_iter_get_arg_type(&dict) == DBUS_TYPE_DICT_ENTRY) {
@@ -539,7 +545,7 @@ static void parse_agent_request(struct agent_data *request,
         dbus_message_iter_recurse(&dict, &entry);
 
         dbus_message_iter_get_basic(&entry, &field);
-        printf("%s field = %s\n", __func__, field);
+        LOG_INFO("%s field = %s\n", __func__, field);
 
         dbus_message_iter_next(&entry);
 
@@ -585,7 +591,7 @@ static DBusMessage *agent_request_input(DBusConnection *connection,
     struct agent_data *request = user_data;
     DBusMessageIter iter, dict;
     char *service, *str;
-    printf("%s\n", __func__);
+    LOG_INFO("%s\n", __func__);
     if (handle_message(message, request, agent_request_input) == false)
         return NULL;
 
@@ -599,11 +605,11 @@ static DBusMessage *agent_request_input(DBusConnection *connection,
 
     //__connmanctl_save_rl();
     if (strcmp(request->interface, AGENT_INTERFACE) == 0)
-        fprintf(stdout, "Agent RequestInput %s\n", service);
+        LOG_INFO("Agent RequestInput %s\n", service);
     else
-        fprintf(stdout, "VPN Agent RequestInput %s\n", service);
+        LOG_INFO("VPN Agent RequestInput %s\n", service);
     __connmanctl_dbus_print(&dict, "  ", " = ", "\n");
-    fprintf(stdout, "\n");
+    LOG_INFO("\n");
 
     parse_agent_request(request, &iter);
 
@@ -666,7 +672,7 @@ agent_request_peer_authorization(DBusConnection *connection,
     char *peer, *str;
     bool input;
     int i;
-    printf("%s\n", __func__);
+    LOG_INFO("%s\n", __func__);
     if (handle_message(message, request, agent_request_peer_authorization)
         == false)
         return NULL;
@@ -680,9 +686,9 @@ agent_request_peer_authorization(DBusConnection *connection,
     dbus_message_iter_recurse(&iter, &dict);
 
     //__connmanctl_save_rl();
-    fprintf(stdout, "Agent RequestPeerAuthorization %s\n", peer);
+    LOG_INFO("Agent RequestPeerAuthorization %s\n", peer);
     __connmanctl_dbus_print(&dict, "  ", " = ", "\n");
-    fprintf(stdout, "\n");
+    LOG_INFO("\n");
 
     parse_agent_request(request, &iter);
 
@@ -761,12 +767,12 @@ static int agent_register_return(DBusMessageIter *iter, const char *error,
     if (error) {
         g_dbus_unregister_interface(connection, agent_path(),
                                     AGENT_INTERFACE);
-        fprintf(stderr, "Error registering Agent: %s\n", error);
+        LOG_ERROR("Error registering Agent: %s\n", error);
         return 0;
     }
 
     agent_request.registered = true;
-    fprintf(stdout, "Agent registered\n");
+    LOG_INFO("Agent registered\n");
 
     return -EINPROGRESS;
 }
@@ -784,7 +790,7 @@ int __connmanctl_agent_register(DBusConnection *connection)
     int result;
 
     if (agent_request.registered == true) {
-        fprintf(stderr, "Agent already registered\n");
+        LOG_ERROR("Agent already registered\n");
         return -EALREADY;
     }
 
@@ -793,7 +799,7 @@ int __connmanctl_agent_register(DBusConnection *connection)
     if (!g_dbus_register_interface(connection, path,
                                    AGENT_INTERFACE, agent_methods,
                                    NULL, NULL, &agent_request, NULL)) {
-        fprintf(stderr, "Error: Failed to register Agent callbacks\n");
+        LOG_ERROR("Error: Failed to register Agent callbacks\n");
         return 0;
     }
 
@@ -805,7 +811,7 @@ int __connmanctl_agent_register(DBusConnection *connection)
         g_dbus_unregister_interface(connection, agent_path(),
                                     AGENT_INTERFACE);
 
-        fprintf(stderr, "Error: Failed to register Agent\n");
+        LOG_ERROR("Error: Failed to register Agent\n");
     }
 
     return result;
@@ -815,12 +821,12 @@ static int agent_unregister_return(DBusMessageIter *iter, const char *error,
                                    void *user_data)
 {
     if (error) {
-        fprintf(stderr, "Error unregistering Agent: %s\n", error);
+        LOG_ERROR("Error unregistering Agent: %s\n", error);
         return 0;
     }
 
     agent_request.registered = false;
-    fprintf(stdout, "Agent unregistered\n");
+    LOG_INFO("Agent unregistered\n");
 
     return 0;
 }
@@ -831,7 +837,7 @@ int __connmanctl_agent_unregister(DBusConnection *connection)
     int result;
 
     if (agent_request.registered == false) {
-        fprintf(stderr, "Agent not registered\n");
+        LOG_ERROR("Agent not registered\n");
         return -EALREADY;
     }
 
@@ -842,7 +848,7 @@ int __connmanctl_agent_unregister(DBusConnection *connection)
                                            agent_unregister_return, NULL, append_path, path);
 
     if (result != -EINPROGRESS)
-        fprintf(stderr, "Error: Failed to unregister Agent\n");
+        LOG_ERROR("Error: Failed to unregister Agent\n");
 
     return result;
 }
@@ -874,12 +880,12 @@ static int vpn_agent_register_return(DBusMessageIter *iter, const char *error,
     if (error) {
         g_dbus_unregister_interface(connection, agent_path(),
                                     VPN_AGENT_INTERFACE);
-        fprintf(stderr, "Error registering VPN Agent: %s\n", error);
+        LOG_ERROR("Error registering VPN Agent: %s\n", error);
         return 0;
     }
 
     vpn_agent_request.registered = true;
-    fprintf(stdout, "VPN Agent registered\n");
+    LOG_INFO("VPN Agent registered\n");
 
     return -EINPROGRESS;
 }
@@ -890,7 +896,7 @@ int __connmanctl_vpn_agent_register(DBusConnection *connection)
     int result;
 
     if (vpn_agent_request.registered == true) {
-        fprintf(stderr, "VPN Agent already registered\n");
+        LOG_ERROR("VPN Agent already registered\n");
         return -EALREADY;
     }
 
@@ -899,7 +905,7 @@ int __connmanctl_vpn_agent_register(DBusConnection *connection)
     if (!g_dbus_register_interface(connection, path,
                                    VPN_AGENT_INTERFACE, vpn_agent_methods,
                                    NULL, NULL, &vpn_agent_request, NULL)) {
-        fprintf(stderr, "Error: Failed to register VPN Agent "
+        LOG_ERROR("Error: Failed to register VPN Agent "
                 "callbacks\n");
         return 0;
     }
@@ -913,7 +919,7 @@ int __connmanctl_vpn_agent_register(DBusConnection *connection)
         g_dbus_unregister_interface(connection, agent_path(),
                                     VPN_AGENT_INTERFACE);
 
-        fprintf(stderr, "Error: Failed to register VPN Agent\n");
+        LOG_ERROR("Error: Failed to register VPN Agent\n");
     }
 
     return result;
@@ -923,12 +929,12 @@ static int vpn_agent_unregister_return(DBusMessageIter *iter,
                                        const char *error, void *user_data)
 {
     if (error) {
-        fprintf(stderr, "Error unregistering VPN Agent: %s\n", error);
+        LOG_ERROR("Error unregistering VPN Agent: %s\n", error);
         return 0;
     }
 
     vpn_agent_request.registered = false;
-    fprintf(stdout, "VPN Agent unregistered\n");
+    LOG_INFO("VPN Agent unregistered\n");
 
     return 0;
 }
@@ -939,7 +945,7 @@ int __connmanctl_vpn_agent_unregister(DBusConnection *connection)
     int result;
 
     if (vpn_agent_request.registered == false) {
-        fprintf(stderr, "VPN Agent not registered\n");
+        LOG_ERROR("VPN Agent not registered\n");
         return -EALREADY;
     }
 
@@ -951,7 +957,7 @@ int __connmanctl_vpn_agent_unregister(DBusConnection *connection)
                                            vpn_agent_unregister_return, NULL, append_path, path);
 
     if (result != -EINPROGRESS)
-        fprintf(stderr, "Error: Failed to unregister VPN Agent\n");
+        LOG_ERROR("Error: Failed to unregister VPN Agent\n");
 
     return result;
 }

@@ -26,6 +26,12 @@
 #include <glib.h>
 
 #include "dbus_helpers.h"
+#include "log.h"
+
+#ifdef LOG_TAG
+#undef LOG_TAG
+#endif
+#define LOG_TAG "dbus_helpers.c"
 
 #define TIMEOUT         120000
 
@@ -50,23 +56,23 @@ void __connmanctl_dbus_print(DBusMessageIter *iter, const char *pre,
     while ((arg_type = dbus_message_iter_get_arg_type(iter))
            != DBUS_TYPE_INVALID) {
 
-        fprintf(stdout, "%s", pre);
+        LOG_INFO("%s", pre);
 
         switch (arg_type) {
         case DBUS_TYPE_STRUCT:
-            fprintf(stdout, "{ ");
+            LOG_INFO("{ ");
             dbus_message_iter_recurse(iter, &entry);
             __connmanctl_dbus_print(&entry, "", "=", " ");
-            fprintf(stdout, " }");
+            LOG_INFO(" }");
             break;
 
         case DBUS_TYPE_ARRAY:
-            fprintf(stdout, "[ ");
+            LOG_INFO("[ ");
 
             dbus_message_iter_recurse(iter, &entry);
             __connmanctl_dbus_print(&entry, "", "=", "\n");
 
-            fprintf(stdout, " ]");
+            LOG_INFO(" ]");
             break;
 
         case DBUS_TYPE_DICT_ENTRY:
@@ -78,7 +84,7 @@ void __connmanctl_dbus_print(DBusMessageIter *iter, const char *pre,
         case DBUS_TYPE_STRING:
         case DBUS_TYPE_OBJECT_PATH:
             dbus_message_iter_get_basic(iter, &str);
-            fprintf(stdout, "%s", str);
+            LOG_INFO("%s", str);
             break;
 
         case DBUS_TYPE_VARIANT:
@@ -89,48 +95,48 @@ void __connmanctl_dbus_print(DBusMessageIter *iter, const char *pre,
         case DBUS_TYPE_BOOLEAN:
             dbus_message_iter_get_basic(iter, &b);
             if (!b)
-                fprintf(stdout, "False");
+                LOG_INFO("False");
             else
-                fprintf(stdout, "True");
+                LOG_INFO("True");
             break;
 
         case DBUS_TYPE_BYTE:
             dbus_message_iter_get_basic(iter, &c);
-            fprintf(stdout, "%d", c);
+            LOG_INFO("%d", c);
             break;
 
         case DBUS_TYPE_UINT16:
             dbus_message_iter_get_basic(iter, &u16);
-            fprintf(stdout, "%u", u16);
+            LOG_INFO("%u", u16);
             break;
 
         case DBUS_TYPE_UINT32:
             dbus_message_iter_get_basic(iter, &u);
-            fprintf(stdout, "%d", u);
+            LOG_INFO("%d", u);
             break;
 
         case DBUS_TYPE_INT32:
             dbus_message_iter_get_basic(iter, &i);
-            fprintf(stdout, "%d", i);
+            LOG_INFO("%d", i);
             break;
 
         case DBUS_TYPE_UINT64:
             dbus_message_iter_get_basic(iter, &u64);
-            fprintf(stdout, "%"PRIu64, u64);
+            LOG_INFO("%"PRIu64, u64);
             break;
 
         case DBUS_TYPE_DOUBLE:
             dbus_message_iter_get_basic(iter, &d);
-            fprintf(stdout, "%f", d);
+            LOG_INFO("%f", d);
             break;
 
         default:
-            fprintf(stdout, "<type %c>", arg_type);
+            LOG_INFO("<type %c>", arg_type);
             break;
         }
 
         if (dbus_message_iter_has_next(iter))
-            fprintf(stdout, "%s", sep);
+            LOG_INFO("%s", sep);
 
         dbus_message_iter_next(iter);
     }

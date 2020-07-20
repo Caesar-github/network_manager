@@ -2,6 +2,12 @@
 #include <string.h>
 #include "json-c/json.h"
 #include "dbserver.h"
+#include "log.h"
+
+#ifdef LOG_TAG
+#undef LOG_TAG
+#endif
+#define LOG_TAG "port.c"
 
 static int port_num_get(int port_id)
 {
@@ -14,18 +20,18 @@ static int port_num_get(int port_id)
     json_object *port_num_js = json_object_object_get(port, "iPortNo");
     int port_num = (int)json_object_get_int(port_num_js);
 
-    g_free(json_str);
+    free(json_str);
     json_object_put(port_info);
     return port_num;
 }
 
 void port_init(void)
 {
-    printf("port init\n");
+    LOG_INFO("port init\n");
     int http_port_num = port_num_get(0);
     int rtmp_port_num = port_num_get(4);
     if ((http_port_num == -1) || (http_port_num == -1)) {
-        printf("dbserver port get fail\n");
+        LOG_INFO("dbserver port get fail\n");
         return;
     }
 
@@ -33,8 +39,8 @@ void port_init(void)
     char rtmp_listen[255];
     sprintf(http_listen, "        listen       %d;", http_port_num);
     sprintf(rtmp_listen, "        listen %d;", rtmp_port_num);
-    printf("http_listen is %s\n", http_listen);
-    printf("rtmp_listen is %s\n", rtmp_listen);
+    LOG_INFO("http_listen is %s\n", http_listen);
+    LOG_INFO("rtmp_listen is %s\n", rtmp_listen);
 
     FILE *fp;
     char buf[255];
@@ -82,5 +88,5 @@ void port_init(void)
     fclose(fp);
 
     system("nginx -s reload");
-    printf("port init over\n");
+    LOG_INFO("port init over\n");
 }
