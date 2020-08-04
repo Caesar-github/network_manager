@@ -320,7 +320,7 @@ static void add_technology(DBusMessageIter *iter)
 
     dbus_message_iter_get_basic(iter, &path);
     path = get_path(path);
-    LOG_INFO("%s %s", __func__, path);
+    LOG_INFO("%s %s\n", __func__, path);
 
     dbus_message_iter_next(iter);
 
@@ -350,27 +350,27 @@ static void add_technology(DBusMessageIter *iter)
 
             if (strcmp(strname, "Name") == 0) {
                 dbus_message_iter_get_basic(&subentry, &strval);
-                LOG_INFO("%s = %s", strname, strval);
+                LOG_INFO("%s = %s\n", strname, strval);
                 if (status->Name)
                     g_free(status->Name);
                 status->Name = g_strdup(strval);
             } else if (strcmp(strname, "Type") == 0) {
                 dbus_message_iter_get_basic(&subentry, &strval);
-                LOG_INFO("%s = %s", strname, strval);
+                LOG_INFO("%s = %s\n", strname, strval);
                 if (status->Type)
                     g_free(status->Type);
                 status->Type = g_strdup(strval);
             } else if (strcmp(strname, "Powered") == 0) {
                 dbus_message_iter_get_basic(&subentry, &val);
-                LOG_INFO("%s = %d", strname, val);
+                LOG_INFO("%s = %d\n", strname, val);
                 status->Powered = val;
             } else if (strcmp(strname, "Connected") == 0) {
                 dbus_message_iter_get_basic(&subentry, &val);
-                LOG_INFO("%s = %d", strname, val);
+                LOG_INFO("%s = %d\n", strname, val);
                 status->Connected = val;
             } else if (strcmp(strname, "Tethering") == 0) {
                 dbus_message_iter_get_basic(&subentry, &val);
-                LOG_INFO("%s = %d", strname, val);
+                LOG_INFO("%s = %d\n", strname, val);
                 status->Tethering = val;
             }
             dbus_message_iter_next(&entry);
@@ -463,12 +463,12 @@ static void resolve_ethernet(DBusMessageIter* iter, struct EthernetStatus *Ether
             if (Ethernet->Method)
                 g_free(Ethernet->Method);
             Ethernet->Method = g_strdup(strval);
-            LOG_INFO("%s = %s", strname, strval);
+            LOG_DEBUG("%s = %s\n", strname, strval);
         } else if (strcmp(strname, "Address") == 0) {
             dbus_message_iter_next(&subentry);
             dbus_message_iter_recurse(&subentry, &subentry);
             dbus_message_iter_get_basic(&subentry, &strval);
-            LOG_INFO("%s = %s", strname, strval);
+            LOG_DEBUG("%s = %s\n", strname, strval);
             if (Ethernet->Address)
                 g_free(Ethernet->Address);
             Ethernet->Address = g_strdup(strval);
@@ -476,7 +476,7 @@ static void resolve_ethernet(DBusMessageIter* iter, struct EthernetStatus *Ether
             dbus_message_iter_next(&subentry);
             dbus_message_iter_recurse(&subentry, &subentry);
             dbus_message_iter_get_basic(&subentry, &strval);
-            LOG_INFO("%s = %s", strname, strval);
+            LOG_DEBUG("%s = %s\n", strname, strval);
             if (Ethernet->Interface)
                 g_free(Ethernet->Interface);
             Ethernet->Interface = g_strdup(strval);
@@ -484,7 +484,7 @@ static void resolve_ethernet(DBusMessageIter* iter, struct EthernetStatus *Ether
             dbus_message_iter_next(&subentry);
             dbus_message_iter_recurse(&subentry, &subentry);
             dbus_message_iter_get_basic(&subentry, &u16val);
-            LOG_INFO("%s = %d", strname, u16val);
+            LOG_DEBUG("%s = %d\n", strname, u16val);
             Ethernet->MTU = u16val;
         }
         dbus_message_iter_next(&entry);
@@ -520,12 +520,12 @@ static void resolve_ipv4(DBusMessageIter* iter, struct IPv4Status *IPv4)
             if (IPv4->Method)
                 g_free(IPv4->Method);
             IPv4->Method = g_strdup(strval);
-            LOG_INFO("%s = %s", strname, strval);
+            LOG_DEBUG("%s = %s\n", strname, strval);
         } else if (strcmp(strname, "Address") == 0) {
             dbus_message_iter_next(&subentry);
             dbus_message_iter_recurse(&subentry, &subentry);
             dbus_message_iter_get_basic(&subentry, &strval);
-            LOG_INFO("%s = %s", strname, strval);
+            LOG_DEBUG("%s = %s\n", strname, strval);
             if (IPv4->Address)
                 g_free(IPv4->Address);
             IPv4->Address = g_strdup(strval);
@@ -533,7 +533,7 @@ static void resolve_ipv4(DBusMessageIter* iter, struct IPv4Status *IPv4)
             dbus_message_iter_next(&subentry);
             dbus_message_iter_recurse(&subentry, &subentry);
             dbus_message_iter_get_basic(&subentry, &strval);
-            LOG_INFO("%s = %s", strname, strval);
+            LOG_DEBUG("%s = %s\n", strname, strval);
             if (IPv4->Netmask)
                 g_free(IPv4->Netmask);
             IPv4->Netmask = g_strdup(strval);
@@ -541,7 +541,7 @@ static void resolve_ipv4(DBusMessageIter* iter, struct IPv4Status *IPv4)
             dbus_message_iter_next(&subentry);
             dbus_message_iter_recurse(&subentry, &subentry);
             dbus_message_iter_get_basic(&subentry, &strval);
-            LOG_INFO("%s = %s", strname, strval);
+            LOG_DEBUG("%s = %s\n", strname, strval);
             if (IPv4->Gateway)
                 g_free(IPv4->Gateway);
             IPv4->Gateway = g_strdup(strval);
@@ -563,7 +563,7 @@ static void resolve_servers(DBusMessageIter *iter, char **servers)
     for (i = 0; dbus_message_iter_get_arg_type(&subentry) == DBUS_TYPE_STRING; i++) {
         char *tmp = *servers;
         dbus_message_iter_get_basic(&subentry, &strval);
-        LOG_INFO("%s = %s", strname, strval);
+        LOG_DEBUG("%s = %s\n", strname, strval);
         if (i == 0)
             *servers = g_strdup_printf("%s", strval);
         else
@@ -620,7 +620,7 @@ static void resolve_properties(DBusMessageIter *iter, struct PropertiesStatus *s
         dbus_message_iter_recurse(&entry, &valentry);
         if (strcmp(strname, "Type") == 0) {
             dbus_message_iter_get_basic(&valentry, &strval);
-            LOG_INFO("%s = %s", strname, strval);
+            LOG_DEBUG("%s = %s\n", strname, strval);
             if (status->Type)
                 g_free(status->Type);
             status->Type = g_strdup(strval);
@@ -636,31 +636,31 @@ static void resolve_properties(DBusMessageIter *iter, struct PropertiesStatus *s
             resolve_servers(&valentry, &status->Timeservers_config);
         } else if (strcmp(strname, "State") == 0) {
             dbus_message_iter_get_basic(&valentry, &strval);
-            LOG_INFO("%s = %s", strname, strval);
+            LOG_DEBUG("%s = %s\n", strname, strval);
             if (status->State)
                 g_free(status->State);
             status->State = g_strdup(strval);
         } else if (strcmp(strname, "Error") == 0) {
             dbus_message_iter_get_basic(&valentry, &strval);
-            LOG_INFO("%s = %s", strname, strval);
+            LOG_DEBUG("%s = %s\n", strname, strval);
             if (status->Error)
                 g_free(status->Error);
             status->Error = g_strdup(strval);
         } else if (strcmp(strname, "Favorite") == 0) {
             dbus_message_iter_get_basic(&valentry, &bval);
-            LOG_INFO("%s = %d", strname, bval);
+            LOG_DEBUG("%s = %d\n", strname, bval);
             status->Favorite = bval;
         } else if (strcmp(strname, "Immutable") == 0) {
             dbus_message_iter_get_basic(&valentry, &bval);
-            LOG_INFO("%s = %d", strname, bval);
+            LOG_DEBUG("%s = %d\n", strname, bval);
             status->Immutable = bval;
         } else if (strcmp(strname, "AutoConnect") == 0) {
             dbus_message_iter_get_basic(&valentry, &bval);
-            LOG_INFO("%s = %d", strname, bval);
+            LOG_DEBUG("%s = %d\n", strname, bval);
             status->AutoConnect = bval;
         } else if (strcmp(strname, "Name") == 0) {
             dbus_message_iter_get_basic(&valentry, &strval);
-            LOG_INFO("%s = %s", strname, strval);
+            LOG_DEBUG("%s = %s\n", strname, strval);
             if (status->Name)
                 g_free(status->Name);
             status->Name = g_strdup(strval);
@@ -720,7 +720,7 @@ static void services_added(DBusMessageIter *iter)
         resolve_properties(&array, status);
         //dump_properties_status(status);
 
-        LOG_INFO("%s name %s", __func__, status->Name);
+        LOG_INFO("%s name %s\n", __func__, status->Name);
         list = g_list_insert(list, status, i++);
         dbus_message_iter_next(iter);
     }
@@ -810,12 +810,12 @@ static void ServicePropertyChanged(char *path, DBusMessageIter* iter)
             status->State = 0;
             if (dbus_message_iter_get_arg_type(&entry) == DBUS_TYPE_STRING) {
                 dbus_message_iter_get_basic(&entry, &strval);
-                LOG_INFO("%s = %s", strname, strval);
+                LOG_DEBUG("%s = %s\n", strname, strval);
                 status->State = g_strdup(strval);
             }
         } else if (strcmp(strname, "Strength") == 0) {
             dbus_message_iter_get_basic(&entry, &cval);
-            LOG_INFO("%s = %d", strname, cval);
+            LOG_DEBUG("%s = %d\n", strname, cval);
             status->Strength = cval;
         } else if (strcmp(strname, "Timeservers") == 0) {
             resolve_servers(&entry, &status->Timeservers);
@@ -919,7 +919,7 @@ static void ServicesChanged(DBusMessageIter *iter)
     while (dbus_message_iter_get_arg_type(&array) ==
            DBUS_TYPE_OBJECT_PATH) {
         dbus_message_iter_get_basic(&array, &path);
-        LOG_INFO("%s remove %s", __func__, path);
+        LOG_DEBUG("%s remove %s\n", __func__, path);
         services_remove(get_path(path));
 
         dbus_message_iter_next(&array);
@@ -935,7 +935,7 @@ static int populate_service_hash(DBusMessageIter *iter, const char *error,
     char *path;
 
     if (error) {
-        LOG_ERROR("Error getting services: %s", error);
+        LOG_ERROR("Error getting services: %s\n", error);
         return 0;
     }
     service_init_flag = 1;
@@ -955,7 +955,7 @@ static int populate_service_hash(DBusMessageIter *iter, const char *error,
     while (dbus_message_iter_get_arg_type(&array) ==
            DBUS_TYPE_OBJECT_PATH) {
         dbus_message_iter_get_basic(&array, &path);
-        LOG_INFO("%s remove %s", __func__, path);
+        LOG_INFO("%s remove %s\n", __func__, path);
         services_remove(get_path(path));
 
         dbus_message_iter_next(&array);
@@ -974,7 +974,7 @@ static int populate_technology_hash(DBusMessageIter *iter, const char *error,
     DBusMessageIter array;
 
     if (error) {
-        LOG_ERROR("Error getting technologies: %s", error);
+        LOG_ERROR("Error getting technologies: %s\n", error);
         return 0;
     }
 
@@ -1042,7 +1042,7 @@ static int populate_peer_hash(DBusMessageIter *iter,
                               const char *error, void *user_data)
 {
     if (error) {
-        LOG_ERROR("Error getting peers: %s", error);
+        LOG_ERROR("Error getting peers: %s\n", error);
         return 0;
     }
 
@@ -1093,7 +1093,7 @@ static DBusHandlerResult monitor_completions_changed(
         const char * path = dbus_message_get_path(message);
         DBusMessageIter valentry;
         char *strname;
-        LOG_INFO("%s clock PropertyChanged\n", __func__);
+        LOG_DEBUG("%s clock PropertyChanged\n", __func__);
         dbus_message_iter_init(message, &iter);
 
         dbus_message_iter_get_basic(&iter, &strname);
@@ -1114,7 +1114,7 @@ static DBusHandlerResult monitor_completions_changed(
     if (dbus_message_is_signal(message, "net.connman.Technology",
                                "PropertyChanged")) {
         const char * path = dbus_message_get_path(message);
-        LOG_INFO("%s Technology PropertyChanged", __func__);
+        LOG_DEBUG("%s Technology PropertyChanged\n", __func__);
         dbus_message_iter_init(message, &iter);
         TechnologyPropertyChanged(path, &iter);
         if (call)
@@ -1125,7 +1125,7 @@ static DBusHandlerResult monitor_completions_changed(
     if (dbus_message_is_signal(message, "net.connman.Service",
                                "PropertyChanged")) {
         const char * path = dbus_message_get_path(message);
-        LOG_INFO("%s Service PropertyChanged", __func__);
+        LOG_DEBUG("%s Service PropertyChanged\n", __func__);
         dbus_message_iter_init(message, &iter);
         ServicePropertyChanged((char *)path, &iter);
         if (call)
@@ -1135,7 +1135,7 @@ static DBusHandlerResult monitor_completions_changed(
 
     if (dbus_message_is_signal(message, "net.connman.Manager",
                                "ServicesChanged")) {
-        LOG_INFO("%s ServicesChanged", __func__);
+        LOG_DEBUG("%s ServicesChanged\n", __func__);
         dbus_message_iter_init(message, &iter);
         ServicesChanged(&iter);
         if (call)
@@ -1169,7 +1169,7 @@ static DBusHandlerResult monitor_completions_changed(
     */
     if (dbus_message_is_signal(message, "net.connman.Manager",
                                "TechnologyAdded")) {
-        LOG_INFO("%s TechnologyAdded", __func__);
+        LOG_DEBUG("%s TechnologyAdded\n", __func__);
         dbus_message_iter_init(message, &iter);
         add_technology(&iter);
         if (call)
@@ -1179,7 +1179,7 @@ static DBusHandlerResult monitor_completions_changed(
 
     if (dbus_message_is_signal(message, "net.connman.Manager",
                                "TechnologyRemoved")) {
-        LOG_INFO("%s TechnologyRemoved", __func__);
+        LOG_DEBUG("%s TechnologyRemoved\n", __func__);
         dbus_message_iter_init(message, &iter);
         remove_technology(&iter);
         if (call)
