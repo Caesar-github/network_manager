@@ -106,6 +106,7 @@ void syncntp(void)
     if (ntp != NULL && ntp->automode) {
         netctl_clock_config_timeupdates("auto");
         netctl_clock_config_timeservers("");
+        system("hwclock -w -u");
         ntptimeouttag = g_timeout_add(ntp->time * 60000, time_ntp, NULL);
     } else {
         netctl_clock_config_timeupdates("manual");
