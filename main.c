@@ -32,7 +32,7 @@ enum {
 };
 
 int enable_minilog = 0;
-int netserver_log_level = LOG_INFO;
+int netserver_log_level = LOG_WARN;
 
 static void *main_init(void *arg)
 {
