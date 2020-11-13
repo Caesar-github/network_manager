@@ -25,9 +25,9 @@ static int port_num_get(int port_id)
     return port_num;
 }
 
-void port_init(void)
+void port_init(char *nginx_conf_path)
 {
-    LOG_INFO("port init\n");
+    LOG_INFO("port init, nginx_conf_path is %s\n", nginx_conf_path);
     int http_port_num = port_num_get(0);
     int rtmp_port_num = port_num_get(4);
     if ((http_port_num == -1) || (http_port_num == -1)) {
@@ -42,9 +42,13 @@ void port_init(void)
     LOG_INFO("http_listen is %s\n", http_listen);
     LOG_INFO("rtmp_listen is %s\n", rtmp_listen);
 
-    FILE *fp;
+    FILE *fp = fopen(nginx_conf_path, "r+");
+    if (!fp) {
+        LOG_ERROR("can't open %s, port number use default value\n", nginx_conf_path);
+        return;
+    }
+
     char buf[255];
-    fp = fopen("/etc/nginx/nginx.conf", "r+");
     while(fgets(buf, sizeof(buf), fp)) {
         if (strstr(buf, "http {")) {
             while(fgets(buf, sizeof(buf), fp)) {
