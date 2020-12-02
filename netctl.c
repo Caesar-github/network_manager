@@ -681,8 +681,19 @@ static struct PropertiesStatus *allocproertiesstatus(char *service)
 {
     struct PropertiesStatus *status = malloc(sizeof(struct PropertiesStatus));
     memset(status, 0, sizeof(struct PropertiesStatus));
-    status->service = g_strdup(service);
+    if (service)
+        status->service = g_strdup(service);
+    else
+        status->service = g_strdup("");
     status->Error = g_strdup("");
+    status->Type = g_strdup("");
+    status->State = g_strdup("");
+    status->Name = g_strdup("");
+    status->Security = g_strdup("");
+    status->Nameservers = g_strdup("");
+    status->Nameservers_config = g_strdup("");
+    status->Timeservers = g_strdup("");
+    status->Timeservers_config = g_strdup("");
 
     status->IPv4.Method = g_strdup("");
     status->IPv4.Address = g_strdup("");
@@ -869,7 +880,7 @@ static void services_update(DBusMessageIter *iter)
         dbus_message_iter_recurse(iter, &array);
         if (dbus_message_iter_get_arg_type(&array) !=
             DBUS_TYPE_OBJECT_PATH)
-            return;
+            goto out;
 
         dbus_message_iter_get_basic(&array, &path);
         path = get_path(path);
@@ -898,6 +909,7 @@ static void services_update(DBusMessageIter *iter)
     }
     g_list_free(services_list);
     services_list = g_list_first(list);
+out:
     pthread_mutex_unlock(&service_mutex);
 }
 
@@ -1930,7 +1942,7 @@ static void *network_priority_thread(void *arg)
                             need_connectwifi = 0;
                         }
                     }
-                    if (!g_str_equal(status->Error, "")) {
+                    if (g_str_equal(status->Error, "invalid-key")) {
                         database_networkservice_remove(status->service);
                         netctl_service_config_remove(status);
                     }
@@ -1947,7 +1959,7 @@ static void *network_priority_thread(void *arg)
                     struct PropertiesStatus *status = (struct PropertiesStatus *)list_tmp->data;
                     if (g_str_equal(status->Type, "wifi")) {
                         if (status->Favorite) {
-                            if (g_str_equal(status->State, "idle") && g_str_equal(status->Error, "")) {
+                            if (g_str_equal(status->State, "idle")) {
                                 LOG_INFO("%s connect %s, Error = %s, State = %s\n", __func__, status->service, status->Error, status->State);
                                 netctl_service_connect(status->service, "");
                                 break;

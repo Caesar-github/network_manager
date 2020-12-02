@@ -229,11 +229,10 @@ static DBusMessage *get_service(DBusConnection *conn,
     str = json_object_to_json_string(j_array);
 
     reply = dbus_message_new_method_return(msg);
-    if (!reply)
-        return NULL;
-
-    dbus_message_iter_init_append(reply, &array);
-    dbus_message_iter_append_basic(&array, DBUS_TYPE_STRING, &str);
+    if (reply) {
+        dbus_message_iter_init_append(reply, &array);
+        dbus_message_iter_append_basic(&array, DBUS_TYPE_STRING, &str);
+    }
 
     json_object_put(j_array);
     netctl_free_service_list();
