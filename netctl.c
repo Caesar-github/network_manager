@@ -14,6 +14,7 @@
 #include <pthread.h>
 
 #include "dbus_helpers.h"
+#include "json-c/json.h"
 #include "netctl.h"
 #include "agent.h"
 #include "db_monitor.h"
@@ -38,6 +39,7 @@ static void (*call)(Massage_Type) = NULL;
 static gint ntptimeouttag = -1;
 static int detect_wifi = 1;
 static int detect_eth = 1;
+static power_send_changed g_power_change_cb = NULL;
 
 struct config_append {
     char **opts;
@@ -1537,6 +1539,27 @@ static int enable_return(DBusMessageIter *iter, const char *error,
     return 0;
 }
 
+static int power_change_return(DBusMessageIter *iter, const char *error,
+                         void *user_data)
+{
+    struct PowerChangeCbData *powerInfo = (struct PowerChangeCbData *)user_data;
+
+    if (error) {
+        powerInfo->power = powerInfo->power ? 0 : 1;
+        LOG_ERROR("Error path:%s, type: %s:, err:%s\n", powerInfo->path, powerInfo->type, error);
+    }
+
+    netctl_update_power(powerInfo->type, powerInfo->power);
+    if (g_power_change_cb) {
+        g_power_change_cb(powerInfo->type, powerInfo->power);
+    }
+    g_free(powerInfo->path);
+    g_free(powerInfo->type);
+    g_free(user_data);
+
+    return 0;
+}
+
 static void technologies_power(char *technologies, int onoff)
 {
     char *path;
@@ -1547,10 +1570,14 @@ static void technologies_power(char *technologies, int onoff)
     else
         b = FALSE;
 
-    netctl_update_power(technologies, onoff);
     path = g_strdup_printf("/net/connman/technology/%s", technologies);
+    struct PowerChangeCbData *powerInfo = (struct PowerChangeCbData *)g_malloc(sizeof(struct PowerChangeCbData));
+    memset(powerInfo, 0, sizeof(struct PowerChangeCbData));
+    powerInfo->power = b ? 1 : 0;
+    powerInfo->type = g_strdup(technologies);
+    powerInfo->path = g_strdup(path);
     __connmanctl_dbus_set_property(connection, path,
-                                   "net.connman.Technology", enable_return, g_strdup(path),
+                                   "net.connman.Technology", power_change_return, powerInfo,
                                    "Powered", DBUS_TYPE_BOOLEAN, &b);
 }
 
@@ -2058,4 +2085,13 @@ void netctl_hash_init(void)
 {
     technology_hash = g_hash_table_new_full(g_str_hash, g_str_equal,
                                             g_free, NULL);
+}
+
+int netctl_power_change_cb_register(power_send_changed cb) {
+    if (cb) {
+        g_power_change_cb = cb;
+        LOG_INFO("%s: g_power_change_cb: %p\n", g_power_change_cb);
+        return 0;
+    }
+    return 1;
 }

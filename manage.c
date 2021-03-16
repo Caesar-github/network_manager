@@ -33,7 +33,7 @@
 
 static DBusConnection *connection = 0;
 
-static gboolean power_send_changed(char *name, void *val)
+static gboolean power_send_changed(char *name, int power)
 {
     DBusMessage *signal;
     DBusMessageIter iter;
@@ -42,13 +42,19 @@ static gboolean power_send_changed(char *name, void *val)
                                      NETSERVER_INTERFACE, "PowerChanged");
     if (!signal)
         return FALSE;
+    LOG_INFO("PowerChanged: name: %s, power: %d\n", name, power);
+    json_object *j_obj = json_object_new_object();
+    json_object_object_add("name", json_object_new_string(name));
+    json_obejct_object_add("power", json_object_new_int(power));
 
+    char *json_str = json_object_to_json_string(j_obj);
     dbus_message_iter_init_append(signal, &iter);
-    dbus_property_append_basic(&iter, name, DBUS_TYPE_BYTE, val);
+    dbus_message_iter_append_basic(&iter, DBUS_TYPE_STRING, &json_str);
 
     dbus_connection_send(connection, signal, NULL);
     dbus_message_unref(signal);
 
+    json_object_put(j_obj);
     return FALSE;
 }
 
@@ -393,7 +399,7 @@ static DBusMessage *get_networkip(DBusConnection *conn,
 
     json_object *j_array = (json_object *)get_networkip_json_array(interface);
     str = json_object_to_json_string(j_array);
-LOG_INFO("%s, %s\n", __func__, str);
+    LOG_INFO("%s, %s\n", __func__, str);
     reply = dbus_message_new_method_return(msg);
     if (!reply)
         return NULL;
@@ -470,4 +476,5 @@ void manage_init(void)
         return;
     }
     dbus_manager_init();
+    netctl_power_change_cb_register(&power_send_changed);
 }

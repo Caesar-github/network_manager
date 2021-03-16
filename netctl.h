@@ -6,6 +6,8 @@
 #include <glib.h>
 #include <gdbus.h>
 
+typedef gboolean (*power_send_changed)(char *name, int power);
+
 typedef enum {
     TECH_PRO_CHANGED = 0,
     SERVICE_PRO_CHANAGED,
@@ -78,6 +80,12 @@ struct NetworkPower {
     int power;
 };
 
+struct PowerChangeCbData {
+    char *type;
+    int power;
+    char *path;
+};
+
 struct NtpCfg {
     char *servers;
     char *timezone;
@@ -123,5 +131,6 @@ void netctl_getdns(char *interface, char **dns1, char **dns2);
 void netctl_service_move_before(char *service, char *target);
 void ConnectService(char *service);
 void netctl_hash_init(void);
+int netctl_power_change_cb_register(power_send_changed cb);
 
 #endif
