@@ -44,10 +44,10 @@ static gboolean power_send_changed(char *name, int power)
         return FALSE;
     LOG_INFO("PowerChanged: name: %s, power: %d\n", name, power);
     json_object *j_obj = json_object_new_object();
-    json_object_object_add("name", json_object_new_string(name));
-    json_obejct_object_add("power", json_object_new_int(power));
+    json_object_object_add(j_obj, "name", json_object_new_string(name));
+    json_object_object_add(j_obj, "power", json_object_new_int(power));
 
-    char *json_str = json_object_to_json_string(j_obj);
+    char *json_str = (char *)json_object_to_json_string(j_obj);
     dbus_message_iter_init_append(signal, &iter);
     dbus_message_iter_append_basic(&iter, DBUS_TYPE_STRING, &json_str);
 

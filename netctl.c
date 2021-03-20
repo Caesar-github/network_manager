@@ -39,7 +39,7 @@ static void (*call)(Massage_Type) = NULL;
 static gint ntptimeouttag = -1;
 static int detect_wifi = 1;
 static int detect_eth = 1;
-static power_send_changed g_power_change_cb = NULL;
+static power_send_changed_func g_power_change_cb = NULL;
 
 struct config_append {
     char **opts;
@@ -2087,7 +2087,7 @@ void netctl_hash_init(void)
                                             g_free, NULL);
 }
 
-int netctl_power_change_cb_register(power_send_changed cb) {
+int netctl_power_change_cb_register(power_send_changed_func cb) {
     if (cb) {
         g_power_change_cb = cb;
         LOG_INFO("%s: g_power_change_cb: %p\n", g_power_change_cb);
